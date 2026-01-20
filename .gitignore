@@ -1,0 +1,292 @@
+# =====================================
+# JD-Resume Matching Engine .gitignore
+# =====================================
+
+# =====================================
+# Node.js
+# =====================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# dotenv environment variable files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Build outputs
+dist/
+build/
+out/
+
+# =====================================
+# Java / Spring Boot / Maven
+# =====================================
+# Maven build output
+target/
+
+# Maven wrapper (downloaded automatically)
+.mvn/wrapper/maven-wrapper.jar
+
+# Compiled class files
+*.class
+
+# Package files
+*.jar
+*.war
+*.ear
+
+# Spring Boot
+*.log
+spring-boot-devtools.log
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# IntelliJ IDEA
+*.iws
+*.ipr
+out/
+
+# =====================================
+# Python
+# =====================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+.env.py/
+virtualenv/
+Pipfile.lock
+
+# Distribution / packaging
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+sdist/
+wheels/
+*.manifest
+*.spec
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm
+.idea/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# =====================================
+# Uploads & Temporary Files
+# =====================================
+uploads/
+temp/
+tmp/
+*.tmp
+*.temp
+
+# Extracted skills cache (if stored locally)
+cache/
+*_cache/
+.cache/
+
+# =====================================
+# IDE & Editors
+# =====================================
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs (PyCharm, WebStorm, IntelliJ)
+.idea/
+*.iml
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.#*
+
+# =====================================
+# OS Generated Files
+# =====================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# macOS Thumbnails
+Icon
+
+# macOS Directory setting files
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+
+# Windows shortcuts
+*.lnk
+
+# Desktop.ini files
+[Dd]esktop.ini
+
+# =====================================
+# Logs
+# =====================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =====================================
+# Security & Credentials
+# =====================================
+# API Keys and secrets
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.json
+credentials.json
+
+# OpenAI API key files
+openai_key.txt
+api_key.txt
+
+# Firebase config with actual keys (templates are tracked)
+**/firebase-config.js
+!**/firebase-config.template.js
+
+# Google OAuth tokens
+tokens/
+StoredCredential
+
+# =====================================
+# Debug Files
+# =====================================
+debug-*.html
+*.debug
+
+# =====================================
+# Machine Learning / AI
+# =====================================
+# Model files (can be large)
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.model
+*.pt
+*.pth
+*.onnx
+
+# FAISS index files
+*.faiss
+*.index
+
+# Sentence transformers cache
+sentence_transformers/
+
+# =====================================
+# Testing
+# =====================================
+test-*.html
+*.test.tmp
+
+# =====================================
+# Misc
+# =====================================
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Archive files (if accidentally added)
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# PDF/Document files in root (keep uploads folder clean)
+# Uncomment if you don't want sample files tracked
+# *.pdf
+# *.docx
+# *.doc

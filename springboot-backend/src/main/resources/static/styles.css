@@ -1,0 +1,57 @@
+/* Styles are mostly handled by Tailwind CSS via CDN in index.html */
+
+/* Custom utility classes used in dynamic JS content */
+.skill-tag {
+    display: inline-block;
+    border-radius: 9999px;
+    background-color: #e4e4e7;
+    /* zinc-200 (light mode) */
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #3f3f46;
+    /* zinc-700 (light mode) */
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Dark mode override for skill tags */
+.dark .skill-tag {
+    background-color: #27272a;
+    /* zinc-800 */
+    color: #d4d4d8;
+    /* zinc-300 */
+}
+
+.skill-tag.missing {
+    background-color: rgba(254, 202, 202, 0.3);
+    /* red-200/30 */
+    color: #ef4444;
+    /* red-500 */
+}
+
+.dark .skill-tag.missing {
+    background-color: rgba(127, 29, 29, 0.3);
+    /* red-900/30 */
+    color: #fca5a5;
+    /* red-300 */
+}
+
+.match-item,
+.resume-item {
+    padding: 1rem;
+    background-color: #ffffff;
+    /* white */
+    border: 1px solid #e4e4e7;
+    /* zinc-200 */
+    border-radius: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.dark .match-item,
+.dark .resume-item {
+    background-color: rgba(9, 9, 11, 0.3);
+    /* zinc-950/30 */
+    border-color: #27272a;
+    /* zinc-800 */
+}
