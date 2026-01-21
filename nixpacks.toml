@@ -1,0 +1,14 @@
+# ==============================================
+# Nixpacks.toml - Build Configuration for Railway/Render
+# ==============================================
+
+[phases.setup]
+nixPkgs = ["jdk17", "maven"]
+
+[phases.build]
+cmds = [
+    "cd springboot-backend && chmod +x mvnw && ./mvnw clean package -DskipTests -B"
+]
+
+[start]
+cmd = "java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar springboot-backend/target/jd-resume-matching-1.0.0.jar --server.port=${PORT:-8080}"

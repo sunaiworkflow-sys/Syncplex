@@ -1,11 +1,25 @@
-# Railway.toml - Configuration for Railway.app deployment
+# ==============================================
+# Railway.toml - Railway.app Deployment Configuration
+# ==============================================
+
 [build]
+# Use Nixpacks builder (Railway's default)
 builder = "nixpacks"
-buildCommand = "cd springboot-backend && ./mvnw clean package -DskipTests"
+
+# Build command - builds the Spring Boot application
+buildCommand = "cd springboot-backend && chmod +x mvnw && ./mvnw clean package -DskipTests -B"
 
 [deploy]
-startCommand = "java -jar springboot-backend/target/jd-resume-matching-1.0.0.jar --server.port=$PORT"
+# Start command - runs the JAR with dynamic port
+startCommand = "java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar springboot-backend/target/jd-resume-matching-1.0.0.jar --server.port=$PORT"
+
+# Health check endpoint
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
+
+# Restart policy
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+
+# Number of instances (can be scaled)
+numReplicas = 1

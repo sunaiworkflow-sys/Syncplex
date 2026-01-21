@@ -1,17 +1,41 @@
 #!/bin/sh
-# Maven Wrapper script - downloads and runs Maven if not present
+# ----------------------------------------------------------------------------
+# Maven Wrapper startup script for Unix systems
+# ----------------------------------------------------------------------------
 
 set -e
 
+# Resolve the project base directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR" && cd .. && pwd)"
+
+# Maven version and download URL
 MAVEN_VERSION="3.9.6"
-MAVEN_HOME="${HOME}/.m2/wrapper/dists/apache-maven-${MAVEN_VERSION}"
+MAVEN_HOME="${HOME}/.m2/wrapper/apache-maven-${MAVEN_VERSION}"
 MAVEN_URL="https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
 
-if [ ! -d "${MAVEN_HOME}" ]; then
-    echo "Downloading Maven ${MAVEN_VERSION}..."
-    mkdir -p "${MAVEN_HOME}"
-    curl -fsSL "${MAVEN_URL}" | tar -xzf - -C "${HOME}/.m2/wrapper/dists/" 
+# Check if Maven is installed globally
+if command -v mvn >/dev/null 2>&1; then
+    exec mvn "$@"
 fi
 
+# Download Maven if not present
+if [ ! -d "${MAVEN_HOME}" ]; then
+    echo "Downloading Maven ${MAVEN_VERSION}..."
+    mkdir -p "${HOME}/.m2/wrapper"
+    
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${MAVEN_URL}" | tar -xzf - -C "${HOME}/.m2/wrapper/"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO- "${MAVEN_URL}" | tar -xzf - -C "${HOME}/.m2/wrapper/"
+    else
+        echo "Error: curl or wget is required to download Maven"
+        exit 1
+    fi
+    
+    echo "Maven ${MAVEN_VERSION} installed successfully"
+fi
+
+# Run Maven
 export PATH="${MAVEN_HOME}/bin:${PATH}"
 exec mvn "$@"

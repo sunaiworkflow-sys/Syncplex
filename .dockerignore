@@ -1,0 +1,54 @@
+# ==============================================
+# .dockerignore - Exclude from Docker build context
+# ==============================================
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# Environment files (use Docker secrets or env vars)
+.env
+.env.local
+.env.*
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Build artifacts (will be created during build)
+springboot-backend/target/
+**/target/
+
+# Logs
+*.log
+logs/
+
+# Node.js (if any)
+node_modules/
+package*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+**/test/
+**/*Test.java
+**/*Tests.java
+
+# Local development scripts
+springboot-backend/run.sh
+springboot-backend/error.log
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+uploads/
