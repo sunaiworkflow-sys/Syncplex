@@ -1,101 +1,72 @@
-# ===========================================
-# SyncPlex JD-Resume Matching Engine
-# Docker Compose for Hostinger VPS Deployment
-# ===========================================
-
-version: '3.8'
+version: "3.8"
 
 services:
-  # ====================================
-  # Main Application Service
-  # ====================================
   app:
     build:
       context: .
       dockerfile: Dockerfile
+
     container_name: syncplex-app
     restart: unless-stopped
+
     ports:
-      - "${SERVER_PORT:-8080}:8080"
+      - "8080:8080"
+
     environment:
-      # Server Configuration
-      - SERVER_PORT=8080
-      - SPRING_PROFILES_ACTIVE=production
-      
-      # MongoDB Atlas Configuration
-      - MONGO_URI=${MONGO_URI}
-      
-      # OpenAI Configuration
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
-      
-      # AWS S3 Configuration
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION:-eu-north-1}
-      - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
-      
-      # Gemini Fallback Configuration
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      
-      # Google Drive OAuth Configuration
-      - GOOGLE_DRIVE_CLIENT_ID=${GOOGLE_DRIVE_CLIENT_ID}
-      - GOOGLE_DRIVE_CLIENT_SECRET=${GOOGLE_DRIVE_CLIENT_SECRET}
-      - GOOGLE_DRIVE_PROJECT_ID=${GOOGLE_DRIVE_PROJECT_ID}
-      
-      # Firebase Configuration
-      - FIREBASE_API_KEY=${FIREBASE_API_KEY}
-      - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
-      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
-      - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
-      - FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}
-      - FIREBASE_APP_ID=${FIREBASE_APP_ID}
-      - FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
-      
-      # JVM Optimization for containers
-      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom
+      # Spring
+      SPRING_PROFILES_ACTIVE: production
+      SERVER_PORT: 8080
+
+      # MongoDB
+      MONGO_URI: ${MONGO_URI}
+
+      # OpenAI
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: gpt-4o-mini
+
+      # AWS S3
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_BUCKET_NAME: ${AWS_BUCKET_NAME}
+
+      # Gemini
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+
+      # Google Drive OAuth
+      GOOGLE_DRIVE_CLIENT_ID: ${GOOGLE_DRIVE_CLIENT_ID}
+      GOOGLE_DRIVE_CLIENT_SECRET: ${GOOGLE_DRIVE_CLIENT_SECRET}
+      GOOGLE_DRIVE_PROJECT_ID: ${GOOGLE_DRIVE_PROJECT_ID}
+
+      # Firebase
+      FIREBASE_API_KEY: ${FIREBASE_API_KEY}
+      FIREBASE_AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_STORAGE_BUCKET: ${FIREBASE_STORAGE_BUCKET}
+      FIREBASE_MESSAGING_SENDER_ID: ${FIREBASE_MESSAGING_SENDER_ID}
+      FIREBASE_APP_ID: ${FIREBASE_APP_ID}
+      FIREBASE_MEASUREMENT_ID: ${FIREBASE_MEASUREMENT_ID}
+
+      # JVM
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+
     volumes:
-      # Persist uploaded files (if any local storage is used)
       - app-uploads:/app/uploads
-      # Application logs
       - app-logs:/app/logs
+
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 10s
-      start_period: 60s
       retries: 3
+
     networks:
       - syncplex-network
-    labels:
-      # Labels for container management
-      - "com.syncplex.service=jd-resume-matching"
-      - "com.syncplex.version=1.0.0"
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-# ====================================
-# Networks
-# ====================================
+volumes:
+  app-uploads:
+  app-logs:
+
 networks:
   syncplex-network:
     driver: bridge
-    name: syncplex-network
-
-# ====================================
-# Volumes for persistent data
-# ====================================
-volumes:
-  app-uploads:
-    name: syncplex-uploads
-  app-logs:
-    name: syncplex-logs
