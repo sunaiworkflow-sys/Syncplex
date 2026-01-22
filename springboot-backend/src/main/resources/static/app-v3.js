@@ -1503,8 +1503,11 @@ class App {
                 body: JSON.stringify({ matches: matchesToSave })
             });
 
+            // Step 4: Reload matches from backend to get server-calculated fields (like relevantProjects)
+            console.log('🔄 Reloading matches from backend...');
+            await this.loadMatchesForJob(job);
+
             job.status = 'ranked';
-            job.matchResults = matchesToSave; // Cache locally
 
             this.showToast('Complete!', 'Resumes matched, ranked, and saved', 'success');
             this.renderJobsList(); // Status badge update
