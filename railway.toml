@@ -7,7 +7,7 @@
 builder = "nixpacks"
 
 # Build command - builds the Spring Boot application
-buildCommand = "cd springboot-backend && chmod +x mvnw && ./mvnw clean package -DskipTests -B"
+buildCommand = "cd springboot-backend && chmod +x generate-firebase-config.sh && ./generate-firebase-config.sh && chmod +x mvnw && ./mvnw clean package -DskipTests -B"
 
 [deploy]
 # Start command - runs the JAR with dynamic port

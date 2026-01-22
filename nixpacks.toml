@@ -7,6 +7,7 @@ nixPkgs = ["jdk17", "maven"]
 
 [phases.build]
 cmds = [
+    "cd springboot-backend && chmod +x generate-firebase-config.sh && ./generate-firebase-config.sh",
     "cd springboot-backend && chmod +x mvnw && ./mvnw clean package -DskipTests -B"
 ]
 
