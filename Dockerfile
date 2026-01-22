@@ -25,6 +25,14 @@ RUN ./mvnw dependency:go-offline -B
 # Copy source code
 COPY springboot-backend/src ./src
 
+# Copy Firebase config generation script
+COPY springboot-backend/generate-firebase-config.sh ./
+
+# Generate Firebase config from environment variables (if set)
+# This will use build-time ARGs or ENV vars
+RUN chmod +x generate-firebase-config.sh && \
+    ./generate-firebase-config.sh || echo "⚠️  Firebase config generation skipped (env vars not set at build time)"
+
 # Build the application (skip tests for faster builds)
 RUN ./mvnw clean package -DskipTests -B
 

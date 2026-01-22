@@ -22,6 +22,10 @@ if [ -f ../.env ]; then
   export $(grep -v '^#' ../.env | grep -v '^$' | xargs)
 fi
 
+# 0.5. Generate Firebase Config
+echo "🔧 Generating firebase-config.js from environment variables..."
+./generate-firebase-config.sh
+
 # 1. Check MongoDB
 echo "🔍 Checking MongoDB..."
 if ! pgrep -x "mongod" > /dev/null
@@ -61,8 +65,8 @@ echo " Ready!"
 
 # 5. Open Browser
 echo "--------------------------------------------------"
-echo "🌐 Opening http://localhost:8080/index.html"
-open "http://localhost:8080/index.html"
+echo "🌐 Opening http://localhost:8080/landing.html"
+open "http://localhost:8080/landing.html"
 
 echo "=================================================="
 echo "   🎉 SYSTEM IS LIVE"
