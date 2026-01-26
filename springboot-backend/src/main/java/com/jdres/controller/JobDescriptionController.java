@@ -74,6 +74,7 @@ public class JobDescriptionController {
             jd.setParsedDetails(parsedDetails);
             jd.setRequiredSkills(requiredSkills);
             jd.setPreferredSkills(preferredSkills);
+            jd.setSuggestedKeywords(new ArrayList<>()); // Initialize empty
             jd.setMinExperience(minExperience);
 
             // Set recruiterId for user isolation
@@ -201,12 +202,20 @@ public class JobDescriptionController {
                 jd.setRequiredSkills(skills);
             }
 
+            // Update suggested keywords if provided
+            if (payload.containsKey("suggestedKeywords")) {
+                @SuppressWarnings("unchecked")
+                List<String> keywords = (List<String>) payload.get("suggestedKeywords");
+                jd.setSuggestedKeywords(keywords);
+            }
+
             jobDescriptionRepository.save(jd);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "jdId", jdId,
                     "title", jd.getTitle(),
+                    "suggestedKeywords", jd.getSuggestedKeywords() != null ? jd.getSuggestedKeywords() : List.of(),
                     "requiredSkills", jd.getRequiredSkills() != null ? jd.getRequiredSkills() : List.of()));
         } catch (Exception e) {
             return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
@@ -245,11 +254,21 @@ public class JobDescriptionController {
 
                 // Handle scores safely...
                 if (matchData.get("matchScore") instanceof Number) {
-                    result.setFinalScore(((Number) matchData.get("matchScore")).doubleValue());
+                    double score = ((Number) matchData.get("matchScore")).doubleValue();
+                    // Normalize if > 1.0 (assuming 0-100 input)
+                    if (score > 1.0) {
+                        score = score / 100.0;
+                    }
+                    result.setFinalScore(score);
                 }
 
                 if (matchData.get("skillMatchScore") instanceof Number) {
-                    result.setSkillMatchScore(((Number) matchData.get("skillMatchScore")).doubleValue());
+                    double score = ((Number) matchData.get("skillMatchScore")).doubleValue();
+                    // Normalize if > 1.0
+                    if (score > 1.0) {
+                        score = score / 100.0;
+                    }
+                    result.setSkillMatchScore(score);
                 }
 
                 // Lists - handle unchecked casts safely
@@ -266,6 +285,20 @@ public class JobDescriptionController {
                         : null;
                 if (missingSkillsCast != null)
                     result.setMissingSkillsList(missingSkillsCast);
+
+                @SuppressWarnings("unchecked")
+                List<String> matchedKeywordsCast = matchData.get("matchedKeywords") instanceof List
+                        ? (List<String>) matchData.get("matchedKeywords")
+                        : null;
+                if (matchedKeywordsCast != null)
+                    result.setMatchedKeywordsList(matchedKeywordsCast);
+
+                if (matchData.get("keywordMatchScore") instanceof Number) {
+                    double score = ((Number) matchData.get("keywordMatchScore")).doubleValue();
+                    if (score > 1.0)
+                        score = score / 100.0;
+                    result.setKeywordMatchScore(score);
+                }
 
                 @SuppressWarnings("unchecked")
                 List<String> relevantProjectsCast = matchData.get("relevantProjects") instanceof List
@@ -448,7 +481,11 @@ public class JobDescriptionController {
                 // Detailed Lists
                 result.put("matchedSkillsList", matchedSkillsList);
                 result.put("missingSkillsList", missingSkillsList);
+                result.put("matchedKeywordsList",
+                        match.getMatchedKeywordsList() != null ? match.getMatchedKeywordsList() : new ArrayList<>());
                 result.put("relevantProjects", relevantProjects);
+                result.put("allSkills", resumeSkills != null ? resumeSkills : new ArrayList<>());
+                result.put("resumeText", resume.getText() != null ? resume.getText() : "");
 
                 // Display strings
                 result.put("matchedSkills", matchedSkillsList.size() + "/" + requiredSkills.size());

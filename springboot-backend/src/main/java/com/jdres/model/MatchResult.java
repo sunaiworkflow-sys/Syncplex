@@ -24,6 +24,7 @@ public class MatchResult {
     private double skillMatchScore;
     private double experienceScore;
     private double projectsCertificationsScore;
+    private double keywordMatchScore; // NEW: score for suggested keywords
     private double gapPenalty;
 
     // Final weighted score
@@ -54,6 +55,7 @@ public class MatchResult {
     private String experienceStatus; // EXCEEDS, MEETS, PARTIAL, INSUFFICIENT
     private java.util.List<String> matchedPreferredSkillsList;
     private java.util.List<String> relevantCertifications;
+    private java.util.List<String> matchedKeywordsList; // NEW: matched suggested keywords
 
     private LocalDateTime matchedAt;
 
@@ -297,5 +299,21 @@ public class MatchResult {
 
     public void setRelevantCertifications(java.util.List<String> relevantCertifications) {
         this.relevantCertifications = relevantCertifications;
+    }
+
+    public double getKeywordMatchScore() {
+        return keywordMatchScore;
+    }
+
+    public void setKeywordMatchScore(double keywordMatchScore) {
+        this.keywordMatchScore = keywordMatchScore;
+    }
+
+    public java.util.List<String> getMatchedKeywordsList() {
+        return matchedKeywordsList;
+    }
+
+    public void setMatchedKeywordsList(java.util.List<String> matchedKeywordsList) {
+        this.matchedKeywordsList = matchedKeywordsList;
     }
 }

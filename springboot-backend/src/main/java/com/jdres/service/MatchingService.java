@@ -38,11 +38,12 @@ public class MatchingService {
     private MatchResultRepository matchResultRepository;
 
     // Weights for final score calculation (Total = 100%)
-    private static final double WEIGHT_SKILL = 0.40; // 40% - Skills are most important
+    private static final double WEIGHT_SKILL = 0.35; // 35% - Skills (reduced for keywords)
     private static final double WEIGHT_EXPERIENCE = 0.25; // 25% - Experience matters
     private static final double WEIGHT_PROJECTS = 0.20; // 20% - Relevant projects
     private static final double WEIGHT_CERTIFICATIONS = 0.10; // 10% - Certifications
     private static final double WEIGHT_DOMAIN = 0.05; // 5% - Domain experience
+    private static final double WEIGHT_KEYWORDS = 0.05; // 5% - Keywords
 
     /**
      * Match a new JD against all existing resumes
@@ -304,13 +305,45 @@ public class MatchingService {
         result.setTotalGapMonths(totalGapMonths);
 
         // ============================================
-        // 7. CALCULATE FINAL SCORE
+        // 7. KEYWORD MATCH SCORE (5%)
         // ============================================
+        List<String> suggestedKeywords = jd.getSuggestedKeywords() != null ? jd.getSuggestedKeywords()
+                : new ArrayList<>();
+        List<String> matchedKeywords = new ArrayList<>();
+        double keywordScore = 0.0;
+
+        if (!suggestedKeywords.isEmpty()) {
+            String resumeTextLower = resume.getText() != null ? resume.getText().toLowerCase() : "";
+            for (String keyword : suggestedKeywords) {
+                if (resumeTextLower.contains(keyword.toLowerCase())) {
+                    matchedKeywords.add(keyword);
+                }
+            }
+            keywordScore = (double) matchedKeywords.size() / suggestedKeywords.size();
+        } else {
+            keywordScore = 0.5; // Neutral score if no keywords defined
+        }
+
+        result.setKeywordMatchScore(keywordScore);
+        result.setMatchedKeywordsList(matchedKeywords);
+
+        // ============================================
+        // 8. CALCULATE FINAL SCORE
+        // ============================================
+        // Revised Weights:
+        // Skills: 35% (was 40)
+        // Experience: 25%
+        // Projects: 20%
+        // Certifications: 10%
+        // Domain: 5%
+        // Keywords: 5% (New)
+
         double finalScore = (WEIGHT_SKILL * skillScore) +
                 (WEIGHT_EXPERIENCE * expScore) +
                 (WEIGHT_PROJECTS * projectScore) +
                 (WEIGHT_CERTIFICATIONS * certScore) +
-                (WEIGHT_DOMAIN * domainScore) -
+                (WEIGHT_DOMAIN * domainScore) +
+                (WEIGHT_KEYWORDS * keywordScore) -
                 gapPenalty;
 
         finalScore = Math.max(0, Math.min(1.0, finalScore)); // Clamp to [0, 1]

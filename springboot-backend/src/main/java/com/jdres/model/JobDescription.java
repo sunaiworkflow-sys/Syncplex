@@ -27,6 +27,7 @@ public class JobDescription {
     // Flattened for quick access
     private List<String> requiredSkills;
     private List<String> preferredSkills;
+    private List<String> suggestedKeywords; // User-defined keywords to check
     private int minExperience;
 
     // Multi-tenant support
@@ -111,6 +112,14 @@ public class JobDescription {
 
     public void setPreferredSkills(List<String> preferredSkills) {
         this.preferredSkills = preferredSkills;
+    }
+
+    public List<String> getSuggestedKeywords() {
+        return suggestedKeywords;
+    }
+
+    public void setSuggestedKeywords(List<String> suggestedKeywords) {
+        this.suggestedKeywords = suggestedKeywords;
     }
 
     public int getMinExperience() {

@@ -170,6 +170,7 @@ class App {
                         status: hasSkills ? 'extracted' : 'idle',
                         jdSkills: jd.requiredSkills || [],
                         preferredSkills: jd.preferredSkills || [],
+                        suggestedKeywords: jd.suggestedKeywords || [],
                         minExperience: jd.minExperience || 0,
                         resumes: []  // Job-specific resumes (will be loaded separately)
                     };
@@ -262,6 +263,14 @@ class App {
                     resume.skillMatchScore = skillScore;
                     resume.relevantProjects = match.relevantProjects || [];
                     resume.status = match.candidateStatus; // Accept/Review/Reject status
+
+                    // Fix: Ensure we have the full skill list for re-matching
+                    if (match.allSkills && Array.isArray(match.allSkills)) {
+                        resume.skills = match.allSkills;
+                    }
+                    if (match.resumeText) {
+                        resume.text = match.resumeText;
+                    }
                 });
             }
         } catch (e) {
@@ -282,37 +291,33 @@ class App {
         const job = this.activeJob;
         if (!job) return;
 
-        // Only save if there's actual JD text
-        if (!job.jdText || job.jdText.trim().length === 0) {
+        // Only save if there's actual JD text (or if we are just updating metadata)
+        if ((!job.jdText || job.jdText.trim().length === 0) && !job.jdFile) {
             console.log('⏭️  No JD text to save');
             return false;
         }
 
         try {
             let response;
+            const payload = {
+                jdText: job.jdText,
+                title: job.title || 'Untitled JD',
+                suggestedKeywords: job.suggestedKeywords || []
+            };
 
             if (job.jdId) {
-                // UPDATE existing JD (PUT)
-                console.log('📝 Updating existing JD:', job.jdId);
+                // UPDATE existing
                 response = await fetch(`/api/job-descriptions/${job.jdId}`, {
                     method: 'PUT',
                     headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
-                    body: JSON.stringify({
-                        title: job.title || 'Untitled JD',
-                        jdText: job.jdText, // Fix: Ensure text is updated
-                        requiredSkills: job.jdSkills || []
-                    })
+                    body: JSON.stringify(payload)
                 });
             } else {
-                // CREATE new JD (POST)
-                console.log('💾 Creating new JD:', job.title);
+                // CREATE new
                 response = await fetch('/api/job-descriptions', {
                     method: 'POST',
                     headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
-                    body: JSON.stringify({
-                        jdText: job.jdText,
-                        title: job.title || 'Untitled JD'
-                    })
+                    body: JSON.stringify(payload)
                 });
             }
 
@@ -325,26 +330,18 @@ class App {
                 }
 
                 // Update skills from backend if we don't have them already
-                if ((!job.jdSkills || job.jdSkills.length === 0) && data.requiredSkills) {
-                    job.jdSkills = data.requiredSkills;
-                }
-
-                // Update preferred skills from backend
-                if ((!job.preferredSkills || job.preferredSkills.length === 0) && data.preferredSkills) {
-                    job.preferredSkills = data.preferredSkills;
-                }
-
-                // Update minimum experience from backend
-                if (!job.minExperience && data.minExperience) {
-                    job.minExperience = data.minExperience;
-                }
+                // (Only update if backend returned something useful/new)
+                if (data.requiredSkills) job.jdSkills = data.requiredSkills;
+                if (data.preferredSkills) job.preferredSkills = data.preferredSkills;
+                if (data.suggestedKeywords) job.suggestedKeywords = data.suggestedKeywords;
+                if (data.minExperience) job.minExperience = data.minExperience;
 
                 // Update status if we got skills
                 if (job.jdSkills && job.jdSkills.length > 0) {
                     job.status = 'extracted';
                 }
 
-                console.log('✅ JD saved with', job.jdSkills?.length || 0, 'required skills,', job.preferredSkills?.length || 0, 'preferred skills,', job.minExperience || 0, 'years exp');
+                console.log('✅ JD saved with', job.jdSkills?.length || 0, 'required skills');
                 return true;
             }
             return false;
@@ -371,18 +368,18 @@ class App {
         try {
             const userId = this.getUserId();
             console.log('📥 Loading saved Resumes for user:', userId);
-
+     
             if (!userId) {
                 console.warn('⚠️ No userId available in loadSavedResumes - skipping');
                 return;
             }
-
+     
             // Using Spring Boot Backend Port 8080
             const res = await fetch('/api/v2/resumes', {
                 headers: this.getAuthHeaders()
             });
             const data = await res.json();
-
+     
             if (data.success && data.resumes && data.resumes.length > 0) {
                 // Load into global resumes array (shared across all jobs)
                 data.resumes.forEach(r => {
@@ -398,7 +395,7 @@ class App {
                         });
                     }
                 });
-
+     
                 this.renderResumesList();
                 this.updateActionButtons();
                 this.showToast('Data Loaded', `Loaded ${data.resumes.length} resumes`, 'info');
@@ -583,6 +580,27 @@ class App {
             });
         }
 
+        // Resume Drag & Drop
+        if (this.dom.resumesList) {
+            const list = this.dom.resumesList;
+            const addHighlight = () => list.classList.add('bg-zinc-50', 'dark:bg-zinc-800', 'ring-2', 'ring-dashed', 'ring-sky-400');
+            const removeHighlight = () => list.classList.remove('bg-zinc-50', 'dark:bg-zinc-800', 'ring-2', 'ring-dashed', 'ring-sky-400');
+
+            list.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                addHighlight();
+            });
+            list.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                removeHighlight();
+            });
+            list.addEventListener('drop', (e) => {
+                e.preventDefault();
+                removeHighlight();
+                this.handleResumeDrop(e);
+            });
+        }
+
         // Drive Import
         this.dom.importDriveBtn.addEventListener('click', () => this.openDriveModal());
         this.dom.driveModalClose.addEventListener('click', () => this.closeDriveModal());
@@ -675,6 +693,32 @@ class App {
             btn.disabled = false;
             btn.innerHTML = 'Scan & Import';
         }
+    }
+
+    // New helper: Add keyword
+    async addSuggestedKeyword(keyword) {
+        if (!keyword || !keyword.trim()) return;
+        const job = this.activeJob;
+        if (!job.suggestedKeywords) job.suggestedKeywords = [];
+
+        // Avoid duplicates (case-insensitive)
+        if (!job.suggestedKeywords.some(k => k.toLowerCase() === keyword.toLowerCase())) {
+            job.suggestedKeywords.push(keyword.trim());
+            // Update UI
+            this.updateResultsView();
+            // Save to backend
+            this.debouncedSaveJD();
+        }
+    }
+
+    // New helper: Remove keyword
+    async removeSuggestedKeyword(keyword) {
+        const job = this.activeJob;
+        if (!job.suggestedKeywords) return;
+
+        job.suggestedKeywords = job.suggestedKeywords.filter(k => k !== keyword);
+        this.updateResultsView();
+        this.debouncedSaveJD();
     }
 
     createNewJob() {
@@ -952,6 +996,74 @@ class App {
                 }
             } else {
                 this.dom.expBadge?.classList.add('hidden');
+            }
+
+            // Suggested Keywords Section
+            if (this.dom.jdRequirementsSection) {
+                let keywordsContainer = document.getElementById('suggestedKeywordsSection');
+
+                // Create container if missing
+                if (!keywordsContainer) {
+                    keywordsContainer = document.createElement('div');
+                    keywordsContainer.id = 'suggestedKeywordsSection';
+                    keywordsContainer.className = 'mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-800';
+
+                    // Append before preferred skills or at end
+                    if (this.dom.preferredSkillsSection && this.dom.preferredSkillsSection.parentNode === this.dom.jdRequirementsSection) {
+                        this.dom.jdRequirementsSection.insertBefore(keywordsContainer, this.dom.preferredSkillsSection);
+                    } else {
+                        this.dom.jdRequirementsSection.appendChild(keywordsContainer);
+                    }
+                }
+
+                // Render content
+                keywordsContainer.innerHTML = `
+                <div class="mb-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Suggested Keywords (${(job.suggestedKeywords || []).length})</span>
+                    </div>
+                    
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" id="addKeywordInput" 
+                            placeholder="Type a keyword (e.g. 'Remote', 'Leadership')..." 
+                            class="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all text-zinc-700 dark:text-zinc-200 shadow-sm placeholder-zinc-400">
+                        <button id="addKeywordBtn" 
+                            class="px-4 py-2 bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-700 dark:hover:bg-zinc-300 transition-colors shadow-sm">
+                            Add
+                        </button>
+                    </div>
+
+                    <div id="suggestedKeywordsList" class="flex flex-wrap gap-2">
+                        ${(job.suggestedKeywords && job.suggestedKeywords.length > 0)
+                        ? job.suggestedKeywords.map(k =>
+                            `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 group cursor-default shadow-sm transition-all hover:border-amber-300">
+                                    ${k}
+                                    <button onclick="app.removeSuggestedKeyword('${k}')" class="text-amber-400 hover:text-red-500 dark:text-amber-500/50 dark:hover:text-red-400 transition-colors ml-0.5" title="Remove keyword">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    </button>
+                                </span>`
+                        ).join('')
+                        : '<div class="w-full text-center py-3 border-2 border-dashed border-zinc-100 dark:border-zinc-800/50 rounded-lg text-xs text-zinc-400">Add keywords to fine-tune ranking criteria</div>'
+                    }
+                    </div>
+                </div>
+            `;
+
+                // Bind add button
+                const addBtn = document.getElementById('addKeywordBtn');
+                const input = document.getElementById('addKeywordInput');
+                if (addBtn && input) {
+                    addBtn.onclick = () => {
+                        this.addSuggestedKeyword(input.value);
+                        input.value = '';
+                    };
+                    input.onkeypress = (e) => {
+                        if (e.key === 'Enter') {
+                            this.addSuggestedKeyword(input.value);
+                            input.value = '';
+                        }
+                    };
+                }
             }
         } else {
             // Hide JD requirements section, show placeholder
@@ -1327,6 +1439,58 @@ class App {
         this.activeJob.jdText = '';
         this.activeJob.jdSkills = [];
         this.updateUIForActiveJob();
+    }
+
+    // Helper: Handle resume drop (files & folders)
+    handleResumeDrop(e) {
+        e.preventDefault();
+
+        const items = e.dataTransfer.items;
+        if (items) {
+            let processed = false;
+            for (let i = 0; i < items.length; i++) {
+                // webkitGetAsEntry is standard for File System Access API
+                const item = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+                if (item) {
+                    this.traverseFileTree(item);
+                    processed = true;
+                }
+            }
+
+            // Fallback for standard file drop if entry API fails or is empty
+            if (!processed && e.dataTransfer.files.length > 0) {
+                const files = e.dataTransfer.files;
+                for (let i = 0; i < files.length; i++) {
+                    if (files[i].name.match(/\.(pdf|doc|docx)$/i)) {
+                        this.handleResumeUpload(files[i]);
+                    }
+                }
+            }
+        }
+    }
+
+    // Helper: Recursive file traversal
+    async traverseFileTree(item, path = '') {
+        if (item.isFile) {
+            item.file((file) => {
+                if (file.name.match(/\.(pdf|doc|docx)$/i)) {
+                    this.handleResumeUpload(file);
+                }
+            });
+        } else if (item.isDirectory) {
+            const dirReader = item.createReader();
+            const readEntries = () => {
+                dirReader.readEntries((entries) => {
+                    if (entries.length > 0) {
+                        for (let i = 0; i < entries.length; i++) {
+                            this.traverseFileTree(entries[i], path + item.name + "/");
+                        }
+                        readEntries(); // Continue reading next batch
+                    }
+                });
+            };
+            readEntries();
+        }
     }
 
     async handleResumeUpload(file) {
