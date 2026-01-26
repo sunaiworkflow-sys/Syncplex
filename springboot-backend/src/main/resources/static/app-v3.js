@@ -409,21 +409,53 @@ class App {
     updateUserProfileUI(user) {
         const profileEl = document.getElementById('userProfile');
         if (profileEl) {
+            const initial = user.displayName ? user.displayName.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U');
+
             profileEl.innerHTML = `
-                <div class="h-7 w-7 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 grid place-items-center text-[10px] text-white font-bold">
-                    ${user.displayName ? user.displayName.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U')}
+                <div class="text-right leading-none hidden sm:block">
+                    <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-0.5">${user.displayName || 'User'}</div>
+                    <div class="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 opacity-80">${user.email}</div>
                 </div>
-                <div class="leading-tight min-w-0">
-                    <div class="text-xs font-semibold truncate max-w-[100px]">${user.displayName || 'User'}</div>
-                    <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-[100px]">${user.email}</div>
+                <div class="relative">
+                    <button id="profileMenuBtn" class="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 ring-2 ring-white dark:ring-zinc-900 shadow-sm grid place-items-center text-xs text-white font-bold cursor-pointer hover:opacity-90 transition">
+                        ${initial}
+                    </button>
+                    <!-- Dropdown Menu -->
+                    <div id="profileDropdown" class="absolute right-0 top-full mt-2 w-48 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl py-1 opacity-0 pointer-events-none transform scale-95 transition-all duration-200 z-50 origin-top-right">
+                        <div class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+                             <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">${user.displayName || 'User'}</p>
+                             <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate">${user.email}</p>
+                        </div>
+                        <a href="#" class="block px-4 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">Account Settings</a>
+                        <button id="logoutAction" class="w-full text-left block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                            Sign out
+                        </button>
+                    </div>
                 </div>
-                <button id="logoutBtn" class="ml-2 p-1 text-zinc-400 hover:text-red-500 transition" title="Sign out">
-                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-                    </svg>
-                </button>
             `;
-            document.getElementById('logoutBtn').addEventListener('click', () => this.handleLogout());
+
+            // Toggle Dropdown logic
+            const btn = document.getElementById('profileMenuBtn');
+            const dropdown = document.getElementById('profileDropdown');
+            const logoutAction = document.getElementById('logoutAction');
+
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('opacity-0');
+                dropdown.classList.toggle('pointer-events-none');
+                dropdown.classList.toggle('scale-95');
+                dropdown.classList.toggle('scale-100');
+            });
+
+            // Close when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!profileEl.contains(e.target)) {
+                    dropdown.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+                    dropdown.classList.remove('scale-100');
+                }
+            });
+
+            logoutAction.addEventListener('click', () => this.handleLogout());
         }
     }
 
