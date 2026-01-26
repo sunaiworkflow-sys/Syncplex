@@ -40,11 +40,11 @@ public class JobDescriptionController {
      */
     @PostMapping("/job-descriptions")
     public ResponseEntity<?> createJobDescription(
-            @RequestBody Map<String, String> payload,
+            @RequestBody Map<String, Object> payload,
             @RequestHeader(value = "X-User-Id", required = false) String userId) {
         try {
-            String jdText = payload.get("jdText");
-            String title = payload.get("title");
+            String jdText = (String) payload.get("jdText");
+            String title = (String) payload.get("title");
 
             if (jdText == null || jdText.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "error", "jdText is required"));
