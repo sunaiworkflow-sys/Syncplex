@@ -37,14 +37,6 @@ public class SkillExtractorService {
     @Value("${gemini.api-key:}")
     private String geminiApiKey;
 
-    private static final List<String> COMMON_SKILLS = Arrays.asList(
-            "JavaScript", "Python", "Java", "React", "Node.js", "SQL", "MongoDB",
-            "AWS", "Docker", "Kubernetes", "Git", "REST API", "GraphQL", "HTML", "CSS",
-            "TypeScript", "Angular", "Vue.js", "Express", "Spring", "Django", "Flask",
-            "PostgreSQL", "MySQL", "Redis", "Elasticsearch", "Jenkins", "CI/CD",
-            "Microservices", "API", "JSON", "XML", "Linux", "Windows", "MacOS",
-            "Agile", "Scrum", "DevOps", "Cloud", "Azure", "GCP", "Terraform");
-
     public SkillExtractorService() {
         // OpenAI WebClient
         this.openaiWebClient = WebClient.builder()
@@ -69,17 +61,10 @@ public class SkillExtractorService {
      */
     public List<String> extractSkills(String text) {
         Map<String, Object> details = extractResumeDetails(text);
-        // If details are empty (API failed), fallback to keyword extraction directly
-        // here
         if (details == null || details.isEmpty()) {
-            return mockSkillExtraction(text);
+            return new ArrayList<>();
         }
-
-        List<String> flattened = flattenSkills(details);
-        if (flattened.isEmpty()) {
-            return mockSkillExtraction(text);
-        }
-        return flattened;
+        return flattenSkills(details);
     }
 
     /**
@@ -328,16 +313,16 @@ public class SkillExtractorService {
                     "\"job_title\":\"\"," +
                     "\"required_experience_years\":0," +
                     "\"technical_skills\":[]," +
-                    "\"preferred_skills\":[]" +
+                    "\"preferred_skills\":[]," +
+                    "\"suggested_keywords\":[]" +
                     "}";
 
-            String prompt = "Extract job requirements as JSON. Schema: " + schema +
+            String prompt = "Act as a Senior Technical Recruiter. Extract job requirements as JSON. Schema: " + schema +
                     "\n\nCLASSIFICATION RULES (STRICT):" +
-                    "\n- technical_skills: ONLY include specific technologies like: Python, Java, JavaScript, React, Node.js, AWS, Docker, PostgreSQL, MongoDB, Kubernetes, Git, SQL, etc."
+                    "\n- technical_skills: ONLY specific technologies (e.g., Python, AWS, Docker)." +
+                    "\n- preferred_skills: General skills, soft skills, or nice-to-haves (e.g., Agile, Leadership, AI concepts)."
                     +
-                    "\n- preferred_skills: Include EVERYTHING else like: Data Analysis, Machine Learning concepts, Communication, Agile, Problem Solving, Team collaboration, English, Leadership, etc."
-                    +
-                    "\n\nIMPORTANT: 'Data Analysis', 'Predictive AI', 'Machine Learning', 'AI' go in preferred_skills, NOT technical_skills!"
+                    "\n- suggested_keywords: Extract 5-10 high-impact keywords found in the JD that constitute a 'perfect match'. These should define the Core Domain, Role Criticality, or Must-Have attributes (e.g., 'SaaS', 'High Scale', 'FinTech', 'Startup Experience'). Do not duplicate technical skills here unless they are critical domain markers."
                     +
                     "\n\nOutput ONLY valid JSON. No markdown. No explanations." +
                     "\n\nJob Description:\n" + text;
@@ -593,27 +578,6 @@ public class SkillExtractorService {
     /**
      * Fallback skill extraction using keyword matching
      */
-    private List<String> mockSkillExtraction(String text) {
-        String textLower = text.toLowerCase();
-        List<String> foundSkills = new ArrayList<>();
-
-        for (String skill : COMMON_SKILLS) {
-            String skillLower = skill.toLowerCase();
-            if (textLower.contains(skillLower) ||
-                    textLower.contains(skillLower.replace(".", "")) ||
-                    textLower.contains(skillLower.replace(" ", ""))) {
-                foundSkills.add(skill);
-            }
-        }
-
-        // If no skills are found via keyword matching, return an empty list
-        if (foundSkills.isEmpty()) {
-            log.warn("Fallback keyword skill extraction found no skills; returning empty list.");
-            return Collections.emptyList();
-        }
-
-        return foundSkills;
-    }
 
     /**
      * Fallback skill gap analysis

@@ -60,6 +60,7 @@ public class JobDescriptionController {
             // 3. Extract required/preferred skills for quick access
             List<String> requiredSkills = extractSkillsList(parsedDetails, "technical_skills");
             List<String> preferredSkills = extractSkillsList(parsedDetails, "preferred_skills");
+            List<String> suggestedKeywords = extractSkillsList(parsedDetails, "suggested_keywords"); // Extract keywords
             int minExperience = extractMinExperience(parsedDetails);
 
             // 4. Save JD
@@ -74,7 +75,7 @@ public class JobDescriptionController {
             jd.setParsedDetails(parsedDetails);
             jd.setRequiredSkills(requiredSkills);
             jd.setPreferredSkills(preferredSkills);
-            jd.setSuggestedKeywords(new ArrayList<>()); // Initialize empty
+            jd.setSuggestedKeywords(suggestedKeywords); // Set extracted keywords
             jd.setMinExperience(minExperience);
 
             // Set recruiterId for user isolation
@@ -93,6 +94,7 @@ public class JobDescriptionController {
                     "title", jd.getTitle(),
                     "requiredSkills", requiredSkills,
                     "preferredSkills", preferredSkills,
+                    "suggestedKeywords", suggestedKeywords, // Return keywords
                     "minExperience", minExperience));
 
         } catch (Exception e) {

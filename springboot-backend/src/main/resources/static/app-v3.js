@@ -14,6 +14,16 @@ class App {
         this.activeJobId = 'job-1';
         this.theme = 'dark';
 
+        // Check for Google Viewer support
+        this.getViewerUrl = (url) => {
+            if (!url) return '';
+            const lower = url.toLowerCase();
+            if (lower.endsWith('.docx') || lower.endsWith('.doc') || lower.endsWith('.pptx') || lower.endsWith('.xlsx')) {
+                return `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+            }
+            return url;
+        };
+
         // REMOVED: Global resumes - now each job has its own job.resumes array
 
         // Cache DOM elements
@@ -48,6 +58,7 @@ class App {
             skillsList: document.getElementById('skillsList'),
 
             // Resume Upload
+            resumeSection: document.getElementById('resumeSection'),
             resumeFileInput: document.getElementById('resumeFileInput'),
             resumeFolderInput: document.getElementById('resumeFolderInput'),
             uploadResumeBtn: document.getElementById('uploadResumeBtn'),
@@ -612,24 +623,25 @@ class App {
             });
         }
 
-        // Resume Drag & Drop
-        if (this.dom.resumesList) {
-            const list = this.dom.resumesList;
-            const addHighlight = () => list.classList.add('bg-zinc-50', 'dark:bg-zinc-800', 'ring-2', 'ring-dashed', 'ring-sky-400');
-            const removeHighlight = () => list.classList.remove('bg-zinc-50', 'dark:bg-zinc-800', 'ring-2', 'ring-dashed', 'ring-sky-400');
+        // Resume Drag & Drop - Apply to the ENTIRE section
+        if (this.dom.resumeSection) {
+            const section = this.dom.resumeSection;
 
-            list.addEventListener('dragover', (e) => {
+            section.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                addHighlight();
+                // Visual feedback
+                section.classList.add('ring-2', 'ring-sky-500', 'bg-sky-50', 'dark:bg-sky-900/20');
             });
-            list.addEventListener('dragleave', (e) => {
+            section.addEventListener('dragleave', (e) => {
                 e.preventDefault();
-                removeHighlight();
+                section.classList.remove('ring-2', 'ring-sky-500', 'bg-sky-50', 'dark:bg-sky-900/20');
             });
-            list.addEventListener('drop', (e) => {
+            section.addEventListener('drop', (e) => {
                 e.preventDefault();
-                removeHighlight();
-                this.handleResumeDrop(e);
+                section.classList.remove('ring-2', 'ring-sky-500', 'bg-sky-50', 'dark:bg-sky-900/20');
+                if (e.dataTransfer.files.length > 0 || e.dataTransfer.items.length > 0) {
+                    this.handleResumeDrop(e);
+                }
             });
         }
 
@@ -963,7 +975,12 @@ class App {
         }
 
         if (this.activeJobResumes.length === 0) {
-            this.dom.resumesList.innerHTML = '<div class="italic text-zinc-500 text-sm py-4 text-center">No resumes uploaded yet.</div>';
+            this.dom.resumesList.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-8 text-zinc-400 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg">
+                    <svg class="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <div class="text-sm">Drag & Drop resumes here</div>
+                    <div class="text-xs opacity-70 mt-1">or use the cloud icon to upload</div>
+                </div>`;
             return;
         }
 
@@ -974,7 +991,8 @@ class App {
             // Link to view if available
             let nameHtml = `<span class="truncate max-w-[150px] text-zinc-700 dark:text-zinc-100 text-sm">${resume.name}</span>`;
             if (resume.viewLink) {
-                nameHtml = `<a href="${resume.viewLink}" target="_blank" class="truncate max-w-[150px] text-sky-600 hover:underline dark:text-sky-400 text-sm">${resume.name}</a>`;
+                const viewerLink = this.getViewerUrl(resume.viewLink);
+                nameHtml = `<a href="${viewerLink}" target="_blank" class="truncate max-w-[150px] text-sky-600 hover:underline dark:text-sky-400 text-sm">${resume.name}</a>`;
             }
 
             div.innerHTML = `
@@ -1054,16 +1072,6 @@ class App {
                     <div class="flex justify-between items-center mb-2">
                         <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Suggested Keywords (${(job.suggestedKeywords || []).length})</span>
                     </div>
-                    
-                    <div class="flex gap-2 mb-3">
-                        <input type="text" id="addKeywordInput" 
-                            placeholder="Type a keyword (e.g. 'Remote', 'Leadership')..." 
-                            class="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all text-zinc-700 dark:text-zinc-200 shadow-sm placeholder-zinc-400">
-                        <button id="addKeywordBtn" 
-                            class="px-4 py-2 bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-700 dark:hover:bg-zinc-300 transition-colors shadow-sm">
-                            Add
-                        </button>
-                    </div>
 
                     <div id="suggestedKeywordsList" class="flex flex-wrap gap-2">
                         ${(job.suggestedKeywords && job.suggestedKeywords.length > 0)
@@ -1075,27 +1083,11 @@ class App {
                                     </button>
                                 </span>`
                         ).join('')
-                        : '<div class="w-full text-center py-3 border-2 border-dashed border-zinc-100 dark:border-zinc-800/50 rounded-lg text-xs text-zinc-400">Add keywords to fine-tune ranking criteria</div>'
+                        : '<div class="w-full text-center py-3 border-2 border-dashed border-zinc-100 dark:border-zinc-800/50 rounded-lg text-xs text-zinc-400">No keywords extracted yet.</div>'
                     }
                     </div>
                 </div>
             `;
-
-                // Bind add button
-                const addBtn = document.getElementById('addKeywordBtn');
-                const input = document.getElementById('addKeywordInput');
-                if (addBtn && input) {
-                    addBtn.onclick = () => {
-                        this.addSuggestedKeyword(input.value);
-                        input.value = '';
-                    };
-                    input.onkeypress = (e) => {
-                        if (e.key === 'Enter') {
-                            this.addSuggestedKeyword(input.value);
-                            input.value = '';
-                        }
-                    };
-                }
             }
         } else {
             // Hide JD requirements section, show placeholder
@@ -1178,9 +1170,10 @@ class App {
                 const atsScore = r.skillMatchScore || r.matchScore || 0;
                 const projects = r.relevantProjects || [];
                 const hasProjects = projects.length > 0;
-                const projectDisplay = hasProjects
-                    ? `<div class="flex flex-col gap-1 text-[11px] leading-tight text-left">
-                            ${projects.map(p => {
+                let projectDisplay = '<span class="opacity-50">—</span>';
+
+                if (hasProjects) {
+                    const renderProject = (p) => {
                         const allTech = p.allTech || [];
                         const matchingTechs = p.matchingTechs || [];
                         const techDisplay = allTech.length > 0
@@ -1189,13 +1182,30 @@ class App {
                                 : `<span class="text-zinc-500">${t}</span>`
                             ).join(', ')
                             : '';
-                        return `<div class="mb-1">
-                                    <div class="font-medium text-zinc-800 dark:text-zinc-200">${p.name}</div>
-                                    ${techDisplay ? `<div class="text-[10px] text-zinc-500 dark:text-zinc-400">${techDisplay}</div>` : ''}
+                        return `<div class="mb-2 last:mb-0">
+                                    <div class="font-medium text-zinc-800 dark:text-zinc-200 leading-snug">${p.name}</div>
+                                    ${techDisplay ? `<div class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">${techDisplay}</div>` : ''}
                                 </div>`;
-                    }).join('')}
-                           </div>`
-                    : '<span class="opacity-50">—</span>';
+                    };
+
+                    const visibleCount = 3;
+                    const visibleProjects = projects.slice(0, visibleCount);
+                    const hiddenProjects = projects.slice(visibleCount);
+
+                    projectDisplay = `<div class="flex flex-col text-[11px] text-left min-w-[200px]">
+                            ${visibleProjects.map(renderProject).join('')}
+                            
+                            ${hiddenProjects.length > 0 ? `
+                                <div id="rank-proj-${idx}" class="hidden flex flex-col border-t border-dashed border-zinc-200 dark:border-zinc-700 pt-2 mt-1">
+                                    ${hiddenProjects.map(renderProject).join('')}
+                                </div>
+                                <button onclick="const el = document.getElementById('rank-proj-${idx}'); el.classList.toggle('hidden'); this.textContent = el.classList.contains('hidden') ? 'View ${hiddenProjects.length} more' : 'Show less';" 
+                                    class="text-[10px] font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-500 dark:hover:text-sky-400 mt-1.5 text-left focus:outline-none">
+                                    View ${hiddenProjects.length} more
+                                </button>
+                            ` : ''}
+                           </div>`;
+                }
 
                 return `
                                 <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors">
@@ -1203,7 +1213,7 @@ class App {
                                     <td class="px-2 py-3 align-top">
                                         <div class="flex items-center gap-2">
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-[250px]" title="${displayName}">${displayName}</div>
-                                            ${r.viewLink ? `<a href="${r.viewLink}" target="_blank" class="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex-shrink-0" title="View Resume">
+                                            ${r.viewLink ? `<a href="${this.getViewerUrl(r.viewLink)}" target="_blank" class="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex-shrink-0" title="View Resume">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                             </a>` : ''}
                                         </div>
@@ -1275,7 +1285,7 @@ class App {
                                     <td class="px-2 py-3">
                                         <div class="flex items-center gap-2">
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100">${displayName}</div>
-                                            ${r.viewLink ? `<a href="${r.viewLink}" target="_blank" class="p-1 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-800 text-emerald-600 dark:text-emerald-400" title="View Resume">
+                                            ${r.viewLink ? `<a href="${this.getViewerUrl(r.viewLink)}" target="_blank" class="p-1 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-800 text-emerald-600 dark:text-emerald-400" title="View Resume">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                             </a>` : ''}
                                         </div>
@@ -1545,13 +1555,16 @@ class App {
             const data = await res.json();
             if (data.success) {
                 // Add to global resumes (available for all jobs)
+                // Add to global resumes (available for all jobs)
                 this.activeJobResumes.push({
                     name: file.name,
                     text: data.text,
                     skills: data.skills || [],
                     matchScore: 0,
                     fileId: data.fileId,
-                    viewLink: data.viewLink || data.s3Url
+                    viewLink: data.viewLink || data.s3Url,
+                    candidateExperience: data.candidateExperience || 0,
+                    candidateName: data.candidateName
                 });
                 this.renderResumesList();
                 this.updateActionButtons();

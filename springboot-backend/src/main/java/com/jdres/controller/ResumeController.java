@@ -8,6 +8,8 @@ import com.jdres.service.SkillExtractorService;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -44,12 +46,30 @@ public class ResumeController {
             final String contentType = file.getContentType();
 
             // Extract text FIRST (fast - local operation)
+            // Extract text based on file type
             String text = "";
-            try (PDDocument document = Loader.loadPDF(content)) {
-                PDFTextStripper stripper = new PDFTextStripper();
-                text = stripper.getText(document);
+            String fileNameLower = file.getOriginalFilename().toLowerCase();
+
+            try {
+                if (fileNameLower.endsWith(".pdf")) {
+                    try (PDDocument document = Loader.loadPDF(content)) {
+                        PDFTextStripper stripper = new PDFTextStripper();
+                        text = stripper.getText(document);
+                    }
+                } else if (fileNameLower.endsWith(".docx")) {
+                    try (java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(content);
+                            XWPFDocument doc = new XWPFDocument(bis);
+                            XWPFWordExtractor extractor = new XWPFWordExtractor(doc)) {
+                        text = extractor.getText();
+                    }
+                } else if (fileNameLower.endsWith(".txt")) {
+                    text = new String(content, java.nio.charset.StandardCharsets.UTF_8);
+                } else {
+                    text = "Unsupported file format (only PDF, DOCX, TXT supported)";
+                }
             } catch (Exception e) {
-                text = "Could not extract text (non-PDF)";
+                text = "Error extracting text: " + e.getMessage();
+                e.printStackTrace();
             }
 
             final String finalText = text;
@@ -131,6 +151,7 @@ public class ResumeController {
             response.put("viewLink", s3Url);
             response.put("skills", skills);
             response.put("candidateName", candidateName);
+            response.put("candidateExperience", resume.getCandidateExperience());
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
