@@ -13,5 +13,8 @@ public interface ResumeRepository extends MongoRepository<Resume, String> {
 
     List<Resume> findByRecruiterId(String recruiterId);
 
+    // Resume Isolation
+    List<Resume> findByJdId(String jdId);
+
     void deleteByFileId(String fileId);
 }

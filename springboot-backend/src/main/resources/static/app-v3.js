@@ -9,13 +9,12 @@ class App {
     constructor() {
         // State
         this.jobs = [
-            { id: 'job-1', title: 'Workday Recruiting Functional', createdAt: 'Today', jdText: '', jdFile: null, status: 'idle', results: null }
+            { id: 'job-1', title: 'Workday Recruiting Functional', createdAt: 'Today', jdText: '', jdFile: null, status: 'idle', results: null, resumes: [] }
         ];
         this.activeJobId = 'job-1';
         this.theme = 'dark';
 
-        // Global resumes - shared across all jobs
-        this.allResumes = [];
+        // REMOVED: Global resumes - now each job has its own job.resumes array
 
         // Cache DOM elements
         this.dom = {
@@ -171,7 +170,8 @@ class App {
                         status: hasSkills ? 'extracted' : 'idle',
                         jdSkills: jd.requiredSkills || [],
                         preferredSkills: jd.preferredSkills || [],
-                        minExperience: jd.minExperience || 0
+                        minExperience: jd.minExperience || 0,
+                        resumes: []  // Job-specific resumes (will be loaded separately)
                     };
                     this.jobs.push(job);
                 });
@@ -192,7 +192,7 @@ class App {
     async loadMatchesForJob(job) {
         // Reset resume state to prevent bleeding from other jobs
         // NOTE: candidateName and candidateExperience are resume properties (not job-specific), so don't delete them
-        this.allResumes.forEach(r => {
+        this.activeJobResumes.forEach(r => {
             r.status = null;
             r.matchScore = 0;
             r.skillMatchScore = 0;
@@ -218,38 +218,50 @@ class App {
                 job.matchResults = data.matches;
                 job.status = 'ranked'; // Has saved results
 
-                // Update allResumes with match data for display
+                // Populate job-specific resumes from match results
                 data.matches.forEach(match => {
-                    // Find resume in allResumes by fileId or name
-                    const resume = this.allResumes.find(r =>
+                    // Find or create resume in job's resumes array
+                    let resume = this.activeJobResumes.find(r =>
                         r.fileId === match.resumeId ||
                         r.name === match.resumeName
                     );
 
-                    if (resume) {
-                        let score = match.matchScore || match.finalScore || 0;
-                        // Fix: Clamp score to 100 to prevent 10000% display issue
-                        if (score > 100) {
-                            console.warn(`⚠️ Found abnormal score ${score} for ${resume.name}, normalizing...`);
-                            score = Math.min(score, 100);
-                        }
-
-                        let skillScore = match.skillMatchScore || 0;
-                        if (skillScore > 100) {
-                            skillScore = Math.min(skillScore, 100);
-                        }
-
-                        resume.matchScore = score;
-                        resume.candidateName = match.candidateName;
-                        resume.candidateExperience = match.candidateExperience;
-                        resume.hasGap = match.hasGap;
-                        resume.gapMonths = match.gapMonths;
-                        resume.matchedSkillsList = match.matchedSkillsList || [];
-                        resume.missingSkillsList = match.missingSkillsList || [];
-                        resume.skillMatchScore = skillScore;
-                        resume.relevantProjects = match.relevantProjects || [];
-                        resume.status = match.candidateStatus; // Accept/Review/Reject status
+                    // If resume doesn't exist in this job yet, add it
+                    if (!resume) {
+                        resume = {
+                            fileId: match.resumeId,
+                            name: match.resumeName || match.candidateName || 'Unknown',
+                            candidateName: match.candidateName,
+                            viewLink: match.viewLink || match.s3Url,
+                            skills: [],
+                            text: '' // Will be loaded if needed
+                        };
+                        job.resumes.push(resume);
                     }
+
+                    // Update resume with match data
+                    let score = match.matchScore || match.finalScore || 0;
+                    // Fix: Clamp score to 100 to prevent 10000% display issue
+                    if (score > 100) {
+                        console.warn(`⚠️ Found abnormal score ${score} for ${resume.name}, normalizing...`);
+                        score = Math.min(score, 100);
+                    }
+
+                    let skillScore = match.skillMatchScore || 0;
+                    if (skillScore > 100) {
+                        skillScore = Math.min(skillScore, 100);
+                    }
+
+                    resume.matchScore = score;
+                    resume.candidateName = match.candidateName;
+                    resume.candidateExperience = match.candidateExperience;
+                    resume.hasGap = match.hasGap;
+                    resume.gapMonths = match.gapMonths;
+                    resume.matchedSkillsList = match.matchedSkillsList || [];
+                    resume.missingSkillsList = match.missingSkillsList || [];
+                    resume.skillMatchScore = skillScore;
+                    resume.relevantProjects = match.relevantProjects || [];
+                    resume.status = match.candidateStatus; // Accept/Review/Reject status
                 });
             }
         } catch (e) {
@@ -343,6 +355,19 @@ class App {
     }
 
     async loadSavedResumes() {
+        // DISABLED: This function was loading ALL user resumes globally
+        // which breaks job-specific resume isolation.
+        // 
+        // Resumes should ONLY be loaded from:
+        // 1. Manual uploads to the current job
+        // 2. Match results for the current job (via loadMatchesForJob)
+        //
+        // Do NOT re-enable this without proper job filtering!
+
+        console.log('📥 loadSavedResumes DISABLED - using job-specific resume loading');
+        return;
+
+        /* ORIGINAL CODE - DISABLED
         try {
             const userId = this.getUserId();
             console.log('📥 Loading saved Resumes for user:', userId);
@@ -362,8 +387,8 @@ class App {
                 // Load into global resumes array (shared across all jobs)
                 data.resumes.forEach(r => {
                     // Avoid duplicates
-                    if (!this.allResumes.find(existing => existing.fileId === r.fileId)) {
-                        this.allResumes.push({
+                    if (!this.activeJobResumes.find(existing => existing.fileId === r.fileId)) {
+                        this.activeJobResumes.push({
                             name: r.name,
                             text: r.text,
                             skills: r.skills || [],
@@ -381,6 +406,7 @@ class App {
         } catch (e) {
             console.error("Failed to load saved resumes", e);
         }
+        */
     }
 
     updateUserProfileUI(user) {
@@ -431,6 +457,13 @@ class App {
 
     get activeJob() {
         return this.jobs.find(j => j.id === this.activeJobId);
+    }
+
+    get activeJobResumes() {
+        const job = this.activeJob;
+        if (!job) return [];
+        if (!job.resumes) job.resumes = []; // Ensure resumes array exists
+        return job.resumes;
     }
 
     attachEventListeners() {
@@ -653,7 +686,8 @@ class App {
             jdText: '',
             jdFile: null,
             status: 'idle',
-            jdSkills: []
+            jdSkills: [],
+            resumes: []  // Job-specific resumes
         };
         this.jobs.unshift(newJob);
         this.activeJobId = id;
@@ -729,7 +763,7 @@ class App {
                     await this.loadMatchesForJob(job);
                 } else {
                     // No jdId means new job - reset job-specific data only (keep name/experience)
-                    this.allResumes.forEach(r => {
+                    this.activeJobResumes.forEach(r => {
                         r.status = null;
                         r.matchScore = 0;
                         r.skillMatchScore = 0;
@@ -780,7 +814,7 @@ class App {
 
             // If no jobs left, create a default one
             if (this.jobs.length === 0) {
-                this.jobs = [{ id: 'job-1', title: 'New Job', createdAt: 'Just now', jdText: '', jdFile: null, status: 'idle', jdSkills: [] }];
+                this.jobs = [{ id: 'job-1', title: 'New Job', createdAt: 'Just now', jdText: '', jdFile: null, status: 'idle', jdSkills: [], resumes: [] }];
                 this.activeJobId = 'job-1';
             }
 
@@ -849,15 +883,15 @@ class App {
 
         this.dom.resumesList.innerHTML = '';
         if (this.dom.resumeCount) {
-            this.dom.resumeCount.textContent = this.allResumes.length;
+            this.dom.resumeCount.textContent = this.activeJobResumes.length;
         }
 
-        if (this.allResumes.length === 0) {
+        if (this.activeJobResumes.length === 0) {
             this.dom.resumesList.innerHTML = '<div class="italic text-zinc-500 text-sm py-4 text-center">No resumes uploaded yet.</div>';
             return;
         }
 
-        this.allResumes.forEach(resume => {
+        this.activeJobResumes.forEach(resume => {
             const div = document.createElement('div');
             div.className = 'flex items-center justify-between p-2 rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/50';
 
@@ -936,8 +970,8 @@ class App {
 
         if (job.status === 'ranked' || job.status === 'matched') {
             // Filter resumes
-            let displayResumes = this.allResumes.filter(r => r.status !== 'rejected' && r.status !== 'accepted');
-            let acceptedResumes = this.allResumes.filter(r => r.status === 'accepted');
+            let displayResumes = this.activeJobResumes.filter(r => r.status !== 'rejected' && r.status !== 'accepted');
+            let acceptedResumes = this.activeJobResumes.filter(r => r.status === 'accepted');
 
             // Sort resumes by score if ranked
             if (job.status === 'ranked') {
@@ -1169,7 +1203,7 @@ class App {
 
     // Set candidate status (Accept, Review, Reject)
     async setCandidateStatus(resumeId, status) {
-        const resume = this.allResumes.find(r => (r.fileId || r.name) === resumeId);
+        const resume = this.activeJobResumes.find(r => (r.fileId || r.name) === resumeId);
         if (resume) {
             resume.status = status;
             this.updateResultsView();
@@ -1201,7 +1235,7 @@ class App {
 
     // Permanently delete a resume from database and S3
     async deleteResume(resumeId) {
-        const resume = this.allResumes.find(r => (r.fileId || r.name) === resumeId);
+        const resume = this.activeJobResumes.find(r => (r.fileId || r.name) === resumeId);
         if (!resume) {
             this.showToast('Error', 'Resume not found', 'error');
             return;
@@ -1226,7 +1260,7 @@ class App {
 
             if (data.success) {
                 // Remove from local state
-                this.allResumes = this.allResumes.filter(r => (r.fileId || r.name) !== resumeId);
+                this.activeJobResumes = this.activeJobResumes.filter(r => (r.fileId || r.name) !== resumeId);
 
                 // Update UI
                 this.renderResumesList();
@@ -1248,7 +1282,7 @@ class App {
         if (!job) return;
 
         const hasJd = job.jdText || job.jdFile;
-        const hasResumes = this.allResumes.length > 0;
+        const hasResumes = this.activeJobResumes.length > 0;
         const hasSkills = job.jdSkills && job.jdSkills.length > 0;
 
 
@@ -1301,6 +1335,11 @@ class App {
         const formData = new FormData();
         formData.append('file', file);
 
+        // Resume Isolation: Associate with current JD
+        if (this.activeJob && this.activeJob.jdId) {
+            formData.append('jdId', this.activeJob.jdId);
+        }
+
         try {
             const res = await fetch('/api/upload-resume', {
                 method: 'POST',
@@ -1310,7 +1349,7 @@ class App {
             const data = await res.json();
             if (data.success) {
                 // Add to global resumes (available for all jobs)
-                this.allResumes.push({
+                this.activeJobResumes.push({
                     name: file.name,
                     text: data.text,
                     skills: data.skills || [],
@@ -1347,7 +1386,7 @@ class App {
             job.jdSkills = jdData.skills;
 
             // 2. Extract Resume Skills in PARALLEL (batches of 3 to respect rate limits)
-            const resumesToProcess = this.allResumes.filter(r =>
+            const resumesToProcess = this.activeJobResumes.filter(r =>
                 !r.skills || r.skills.length === 0 || !r.candidateName
             );
 
@@ -1402,7 +1441,7 @@ class App {
         this.updateUIForActiveJob();
 
         try {
-            for (let resume of this.allResumes) {
+            for (let resume of this.activeJobResumes) {
                 const res = await fetch('/api/match-skills', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1446,7 +1485,7 @@ class App {
         try {
             const matchesToSave = [];
 
-            for (let resume of this.allResumes) {
+            for (let resume of this.activeJobResumes) {
                 const res = await fetch('/api/match-skills', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1467,7 +1506,7 @@ class App {
             this.updateUIForActiveJob();
 
             const resumeData = {};
-            this.allResumes.forEach(r => resumeData[r.name] = r.text);
+            this.activeJobResumes.forEach(r => resumeData[r.name] = r.text);
 
             const res = await fetch('/api/rank-resumes', {
                 method: 'POST',
@@ -1477,7 +1516,7 @@ class App {
             const data = await res.json();
 
             // Prepare data for saving
-            this.allResumes.forEach(r => {
+            this.activeJobResumes.forEach(r => {
                 // If we got embedding scores, blend them or use them
                 // For now, we trust the skill match score primarily but could blend
 
@@ -1535,7 +1574,7 @@ class App {
         try {
             // Prepare payload
             const resumeData = {};
-            this.allResumes.forEach(r => resumeData[r.name] = r.text);
+            this.activeJobResumes.forEach(r => resumeData[r.name] = r.text);
 
             const res = await fetch('/api/rank-resumes', {
                 method: 'POST',
@@ -1548,7 +1587,7 @@ class App {
                 // Update match scores with embedding scores if available
                 // data.results is array of { resume_id, similarity_score, ... }
                 data.results.forEach(rank => {
-                    const r = this.allResumes.find(x => x.name === rank.resume_id);
+                    const r = this.activeJobResumes.find(x => x.name === rank.resume_id);
                     if (r) {
                         // Blend or replace score? Let's assume embedding score is superior or supplementary
                         // rank.similarity_score is 0-1 float

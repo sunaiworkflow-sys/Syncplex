@@ -312,23 +312,42 @@ public class JobDescriptionController {
     @GetMapping("/job-descriptions/{jdId}/matches")
     public ResponseEntity<?> getMatchesForJD(
             @PathVariable String jdId,
-            @RequestParam(defaultValue = "50") int limit) {
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+
+        // Security: Verify the JD belongs to the requesting user
+        Optional<JobDescription> jdOpt = jobDescriptionRepository.findByJdId(jdId);
+        if (jdOpt.isEmpty()) {
+            return ResponseEntity.ok(Map.of("success", false, "error", "Job description not found"));
+        }
+
+        JobDescription jd = jdOpt.get();
+
+        // CRITICAL: Verify ownership
+        if (userId == null || !userId.equals(jd.getRecruiterId())) {
+            System.out.println("⚠️ Unauthorized access attempt to JD: " + jdId + " by user: " + userId);
+            return ResponseEntity.ok(Map.of("success", false, "error", "Unauthorized"));
+        }
 
         List<MatchResult> matches = matchResultRepository.findByJdIdOrderByFinalScoreDesc(jdId);
-
-        // Fetch JD for skill comparison
-        Optional<JobDescription> jdOpt = jobDescriptionRepository.findByJdId(jdId);
-        List<String> requiredSkills = jdOpt.map(JobDescription::getRequiredSkills).orElse(new ArrayList<>());
+        List<String> requiredSkills = jd.getRequiredSkills() != null ? jd.getRequiredSkills() : new ArrayList<>();
 
         // Limit results
         matches = matches.stream().limit(limit).collect(Collectors.toList());
 
-        // Enrich with resume details
+        // Enrich with resume details - ONLY for resumes belonging to THIS user
         List<Map<String, Object>> enrichedResults = new ArrayList<>();
         for (MatchResult match : matches) {
             Optional<Resume> resumeOpt = resumeRepository.findByFileId(match.getResumeId());
             if (resumeOpt.isPresent()) {
                 Resume resume = resumeOpt.get();
+
+                // CRITICAL: Only include resumes that belong to this user
+                if (resume.getRecruiterId() == null || !resume.getRecruiterId().equals(userId)) {
+                    System.out.println("⚠️ Skipping resume " + resume.getFileId() + " - belongs to different user");
+                    continue; // Skip this resume
+                }
+
                 Map<String, Object> result = new HashMap<>();
 
                 // Name extraction logic - check nested candidate_profile first

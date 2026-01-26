@@ -36,9 +36,21 @@ public class Resume {
     // Multi-tenant support
     private String recruiterId; // Firebase UID
 
+    // Resume Isolation
+    private String jdId; // proper isolation
+
     // Candidate details
     private String candidateName;
     private int candidateExperience;
+
+    // Getters and Setters
+    public String getJdId() {
+        return jdId;
+    }
+
+    public void setJdId(String jdId) {
+        this.jdId = jdId;
+    }
 
     // Getters and Setters
     public String getId() {

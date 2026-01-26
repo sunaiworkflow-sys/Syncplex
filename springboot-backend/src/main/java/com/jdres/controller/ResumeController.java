@@ -35,6 +35,7 @@ public class ResumeController {
     @PostMapping("/upload-resume")
     public ResponseEntity<?> uploadResume(
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "jdId", required = false) String jdId,
             @RequestHeader(value = "X-User-Id", required = false) String userId) {
         try {
             byte[] content = file.getBytes();
@@ -88,6 +89,11 @@ public class ResumeController {
             resume.setViewLink(s3Url); // Set viewLink
             resume.setEmbedding(Collections.emptyList()); // Empty - not used anymore
             resume.setSkills(skills);
+
+            // Resume Isolation
+            if (jdId != null && !jdId.isEmpty() && !jdId.equals("undefined") && !jdId.equals("null")) {
+                resume.setJdId(jdId);
+            }
 
             // Extract candidate info from details
             String candidateName = null;

@@ -47,6 +47,9 @@ public class MatchingService {
     /**
      * Match a new JD against all existing resumes
      */
+    /**
+     * Match a new JD against its specific resumes (Isolation Enforced)
+     */
     public void matchNewJobDescription(String jdId) {
         Optional<JobDescription> jdOpt = jobDescriptionRepository.findByJdId(jdId);
         if (jdOpt.isEmpty()) {
@@ -55,18 +58,19 @@ public class MatchingService {
         }
 
         JobDescription jd = jdOpt.get();
-        List<Resume> allResumes = resumeRepository.findAll();
+        // ISOLATION: Only fetch resumes uploaded for this specific JD
+        List<Resume> relevantResumes = resumeRepository.findByJdId(jdId);
 
-        log.info("Matching JD {} against {} resumes (Skill-Based Matching)", jdId, allResumes.size());
+        log.info("Matching JD {} against {} resumes (Isolated Skill-Based Matching)", jdId, relevantResumes.size());
 
-        for (Resume resume : allResumes) {
+        for (Resume resume : relevantResumes) {
             MatchResult result = computeSkillBasedMatch(jd, resume);
             matchResultRepository.save(result);
         }
     }
 
     /**
-     * Match a new resume against all existing JDs
+     * Match a new resume against its specific JD (Isolation Enforced)
      */
     public void matchNewResume(String resumeId) {
         Optional<Resume> resumeOpt = resumeRepository.findByFileId(resumeId);
@@ -76,9 +80,26 @@ public class MatchingService {
         }
 
         Resume resume = resumeOpt.get();
+
+        // ISOLATION: If resume has a jdId, only match against that JD
+        if (resume.getJdId() != null && !resume.getJdId().isEmpty()) {
+            Optional<JobDescription> jdOpt = jobDescriptionRepository.findByJdId(resume.getJdId());
+            if (jdOpt.isPresent()) {
+                log.info("Matching resume {} against specific JD {} (Isolated)", resumeId, resume.getJdId());
+                MatchResult result = computeSkillBasedMatch(jdOpt.get(), resume);
+                matchResultRepository.save(result);
+            } else {
+                log.warn("Resume {} has invalid jdId {}", resumeId, resume.getJdId());
+            }
+            return;
+        }
+
+        // Fallback: If no jdId (legacy), match against all (or log warning)
+        // For now, we keep legacy behavior to not break old uploads, but generally this
+        // shouldn't happen in new flow
         List<JobDescription> allJDs = jobDescriptionRepository.findAll();
 
-        log.info("Matching resume {} against {} JDs (Skill-Based Matching)", resumeId, allJDs.size());
+        log.info("Matching legacy resume {} against {} JDs", resumeId, allJDs.size());
 
         for (JobDescription jd : allJDs) {
             MatchResult result = computeSkillBasedMatch(jd, resume);
