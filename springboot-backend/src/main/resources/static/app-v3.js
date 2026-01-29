@@ -13,6 +13,7 @@ class App {
         ];
         this.activeJobId = 'job-1';
         this.theme = 'dark';
+        this.allResumes = []; // Global pool of user's resumes
 
         // Check for Google Viewer support
         this.getViewerUrl = (url) => {
@@ -61,6 +62,19 @@ class App {
             resumeSection: document.getElementById('resumeSection'),
             resumeFileInput: document.getElementById('resumeFileInput'),
             resumeFolderInput: document.getElementById('resumeFolderInput'),
+            mainUploadBtn: document.getElementById('mainUploadBtn'),
+            // New Upload Modal Elements
+            uploadModal: document.getElementById('uploadModal'),
+            uploadModalClose: document.getElementById('uploadModalClose'),
+            modalDragZone: document.getElementById('modalDragZone'),
+
+            // Projects Modal
+            projectsModal: document.getElementById('projectsModal'),
+            projectsModalClose: document.getElementById('projectsModalClose'),
+            projectsModalContent: document.getElementById('projectsModalContent'),
+            projectsModalCandidateName: document.getElementById('projectsModalCandidateName'),
+
+
             uploadResumeBtn: document.getElementById('uploadResumeBtn'),
             folderUploadBtn: document.getElementById('folderUploadBtn'),
             resumesList: document.getElementById('resumesList'),
@@ -363,58 +377,100 @@ class App {
     }
 
     async loadSavedResumes() {
-        // DISABLED: This function was loading ALL user resumes globally
-        // which breaks job-specific resume isolation.
-        // 
-        // Resumes should ONLY be loaded from:
-        // 1. Manual uploads to the current job
-        // 2. Match results for the current job (via loadMatchesForJob)
-        //
-        // Do NOT re-enable this without proper job filtering!
-
-        console.log('📥 loadSavedResumes DISABLED - using job-specific resume loading');
-        return;
-
-        /* ORIGINAL CODE - DISABLED
         try {
             const userId = this.getUserId();
             console.log('📥 Loading saved Resumes for user:', userId);
-     
+
             if (!userId) {
                 console.warn('⚠️ No userId available in loadSavedResumes - skipping');
                 return;
             }
-     
-            // Using Spring Boot Backend Port 8080
-            const res = await fetch('/api/v2/resumes', {
+
+            const res = await fetch('/api/resumes', {
                 headers: this.getAuthHeaders()
             });
             const data = await res.json();
-     
+
             if (data.success && data.resumes && data.resumes.length > 0) {
                 // Load into global resumes array (shared across all jobs)
-                data.resumes.forEach(r => {
-                    // Avoid duplicates
-                    if (!this.activeJobResumes.find(existing => existing.fileId === r.fileId)) {
-                        this.activeJobResumes.push({
-                            name: r.name,
-                            text: r.text,
-                            skills: r.skills || [],
-                            matchScore: r.matchScore || 0,
-                            fileId: r.fileId,
-                            viewLink: r.viewLink
-                        });
-                    }
-                });
-     
+                this.allResumes = data.resumes.map(r => ({
+                    name: r.name,
+                    text: r.text || '',
+                    skills: r.skills || [],
+                    fileId: r.fileId,
+                    viewLink: r.viewLink || r.s3Url,
+                    candidateName: r.candidateName,
+                    candidateExperience: r.candidateExperience || 0
+                }));
+
+                // Initial render for active job
                 this.renderResumesList();
                 this.updateActionButtons();
-                this.showToast('Data Loaded', `Loaded ${data.resumes.length} resumes`, 'info');
+                console.log(`✅ Loaded ${this.allResumes.length} resumes globally`);
             }
         } catch (e) {
             console.error("Failed to load saved resumes", e);
         }
-        */
+    }
+
+    // Helper to close any modal
+    closeModal(modal) {
+        if (!modal) return;
+        const content = modal.querySelector('div.transform');
+        if (content) {
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+        }
+        modal.classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    // Show Projects Modal
+    showProjectsModal(resumeId) {
+        const resume = this.activeJobResumes.find(r => (r.fileId || r.name) === resumeId);
+        if (!resume || !this.dom.projectsModal) return;
+
+        this.dom.projectsModalCandidateName.textContent = resume.candidateName || resume.name || 'Candidate';
+        this.dom.projectsModalContent.innerHTML = '';
+
+        const projects = resume.relevantProjects || [];
+        if (projects.length === 0) {
+            this.dom.projectsModalContent.innerHTML = `
+                <div class="text-center py-10 text-zinc-400 dark:text-zinc-600 italic">
+                    No relevant projects analysis available.
+                </div>
+            `;
+        } else {
+            projects.forEach((p, idx) => {
+                const allTech = p.allTech || [];
+                const matchingTechs = p.matchingTechs || [];
+                const techTags = allTech.map(t => {
+                    const isMatch = matchingTechs.includes(t);
+                    return `<span class="px-2 py-1 rounded text-[10px] font-medium ${isMatch
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                        : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'}">${t}</span>`;
+                }).join('');
+
+                const div = document.createElement('div');
+                div.className = "p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/20";
+                div.innerHTML = `
+                    <div class="flex items-start justify-between mb-2">
+                         <h4 class="font-bold text-zinc-800 dark:text-zinc-200 text-sm">${p.name || `Project ${idx + 1}`}</h4>
+                         ${p.matchScore ? `<span class="text-[10px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/20 px-1.5 py-0.5 rounded">Match: ${p.matchScore}%</span>` : ''}
+                    </div>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mb-3 leading-relaxed">${p.description || 'No description available.'}</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${techTags}
+                    </div>
+                `;
+                this.dom.projectsModalContent.appendChild(div);
+            });
+        }
+
+        // Show
+        this.dom.projectsModal.classList.remove('opacity-0', 'pointer-events-none');
+        const content = this.dom.projectsModal.querySelector('div.transform');
+        content.classList.remove('scale-95');
+        content.classList.add('scale-100');
     }
 
     updateUserProfileUI(user) {
@@ -503,10 +559,43 @@ class App {
         const job = this.activeJob;
         if (!job) return [];
         if (!job.resumes) job.resumes = []; // Ensure resumes array exists
+
+        // Sync global resumes into job.resumes (User-Specific Mode)
+        // This ensures all uploaded resumes appear for ALL jobs
+        if (this.allResumes && this.allResumes.length > 0) {
+            this.allResumes.forEach(globalR => {
+                // Check if this global resume is already tracked in this job
+                const exists = job.resumes.find(r => r.fileId === globalR.fileId);
+                if (!exists) {
+                    // Initialize it in this job with defaults
+                    job.resumes.push({
+                        ...globalR,
+                        matchScore: 0,
+                        status: null, // No status yet for this specific job
+                        // Ensure key data is preserved
+                        skills: globalR.skills || []
+                    });
+                } else {
+                    // Optional: update basic info if it changed globally (like parsed details)
+                    // But preserve job-specific match scores
+                }
+            });
+        }
+
         return job.resumes;
     }
 
     attachEventListeners() {
+        // Projects Modal Close
+        if (this.dom.projectsModalClose) {
+            this.dom.projectsModalClose.addEventListener('click', () => {
+                this.closeModal(this.dom.projectsModal);
+            });
+            this.dom.projectsModal.addEventListener('click', (e) => {
+                if (e.target === this.dom.projectsModal) this.closeModal(this.dom.projectsModal);
+            });
+        }
+
         // Theme Toggle
         this.dom.themeToggleBtn.addEventListener('click', () => this.toggleTheme());
 
@@ -548,11 +637,12 @@ class App {
                     const jdRes = await fetch('/api/extract-skills', {
                         method: 'POST',
                         headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
-                        body: JSON.stringify({ text: job.jdText })
+                        body: JSON.stringify({ text: job.jdText, type: 'JD' })
                     });
                     const jdData = await jdRes.json();
                     if (jdData.success && jdData.skills) {
                         job.jdSkills = jdData.skills;
+                        job.requiredExperience = jdData.requiredExperience || 0;
                         job.status = 'extracted';
                     }
                 } catch (e) {
@@ -590,6 +680,63 @@ class App {
             this.dom.jdSection.classList.remove('bg-zinc-900');
             if (e.dataTransfer.files[0]) this.handleJDUpload(e.dataTransfer.files[0]);
         });
+
+        // Resume Upload Modal Logic
+        if (this.dom.mainUploadBtn && this.dom.uploadModal) {
+            // Open Modal
+            this.dom.mainUploadBtn.addEventListener('click', () => {
+                this.dom.uploadModal.classList.remove('opacity-0', 'pointer-events-none');
+                const content = this.dom.uploadModal.querySelector('div.transform');
+                content.classList.remove('scale-95');
+                content.classList.add('scale-100');
+            });
+
+            // Close Modal
+            this.dom.uploadModalClose.addEventListener('click', () => {
+                const content = this.dom.uploadModal.querySelector('div.transform');
+                content.classList.remove('scale-100');
+                content.classList.add('scale-95');
+                this.dom.uploadModal.classList.add('opacity-0', 'pointer-events-none');
+            });
+
+            // Close when clicking outside content
+            this.dom.uploadModal.addEventListener('click', (e) => {
+                if (e.target === this.dom.uploadModal) {
+                    this.dom.uploadModalClose.click();
+                }
+            });
+
+            // "Import from Drive" from within the modal
+            this.dom.importDriveBtn?.addEventListener('click', () => {
+                this.dom.uploadModalClose.click(); // Close resume modal
+                setTimeout(() => this.openDriveModal(), 300); // Open drive modal
+            });
+
+            // Modal Drag Zone Click -> Trigger File Input
+            this.dom.modalDragZone?.addEventListener('click', () => this.dom.resumeFileInput.click());
+
+            // Modal Drag & Drop Logic
+            const dz = this.dom.modalDragZone;
+            if (dz) {
+                dz.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dz.classList.add('bg-zinc-100', 'dark:bg-zinc-800', 'border-sky-500');
+                });
+                dz.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    dz.classList.remove('bg-zinc-100', 'dark:bg-zinc-800', 'border-sky-500');
+                });
+                dz.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation(); // Stop bubbling
+                    dz.classList.remove('bg-zinc-100', 'dark:bg-zinc-800', 'border-sky-500');
+                    if (e.dataTransfer.files.length > 0 || e.dataTransfer.items.length > 0) {
+                        this.handleResumeDrop(e);
+                        this.dom.uploadModalClose.click(); // Close modal after drop
+                    }
+                });
+            }
+        }
 
         // Resume Upload (single files)
         this.dom.uploadResumeBtn.addEventListener('click', () => this.dom.resumeFileInput.click());
@@ -967,40 +1114,14 @@ class App {
     }
 
     renderResumesList() {
-        if (!this.dom.resumesList) return;
-
-        this.dom.resumesList.innerHTML = '';
         if (this.dom.resumeCount) {
             this.dom.resumeCount.textContent = this.activeJobResumes.length;
         }
 
-        if (this.activeJobResumes.length === 0) {
-            this.dom.resumesList.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-8 text-zinc-400 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg">
-                    <svg class="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                    <div class="text-sm">Drag & Drop resumes here</div>
-                    <div class="text-xs opacity-70 mt-1">or use the cloud icon to upload</div>
-                </div>`;
-            return;
-        }
-
-        this.activeJobResumes.forEach(resume => {
-            const div = document.createElement('div');
-            div.className = 'flex items-center justify-between p-2 rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/50';
-
-            // Link to view if available
-            let nameHtml = `<span class="truncate max-w-[150px] text-zinc-700 dark:text-zinc-100 text-sm">${resume.name}</span>`;
-            if (resume.viewLink) {
-                const viewerLink = this.getViewerUrl(resume.viewLink);
-                nameHtml = `<a href="${viewerLink}" target="_blank" class="truncate max-w-[150px] text-sky-600 hover:underline dark:text-sky-400 text-sm">${resume.name}</a>`;
-            }
-
-            div.innerHTML = `
-                ${nameHtml}
-                <span class="text-[10px] bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 px-1.5 py-0.5 rounded">${resume.skills ? resume.skills.length + ' skills' : 'Processing...'}</span>
-            `;
-            this.dom.resumesList.appendChild(div);
-        });
+        /* 
+         * REMOVED: File list display.
+         * User requested to hide the uploaded files list and only show the count.
+         */
     }
 
     updateResultsView() {
@@ -1143,7 +1264,6 @@ class App {
                                     <th class="px-2 py-3 font-medium">#</th>
                                     <th class="px-2 py-3 font-medium">Candidate</th>
                                     <th class="px-2 py-3 font-medium text-center">Match</th>
-                                    <th class="px-2 py-3 font-medium text-center">ATS</th>
                                     <th class="px-2 py-3 font-medium text-center">Skills</th>
                                     <th class="px-2 py-3 font-medium">Missing</th>
                                     <th class="px-2 py-3 font-medium">Projects</th>
@@ -1170,47 +1290,22 @@ class App {
                 const atsScore = r.skillMatchScore || r.matchScore || 0;
                 const projects = r.relevantProjects || [];
                 const hasProjects = projects.length > 0;
-                let projectDisplay = '<span class="opacity-50">—</span>';
+                let projectDisplay = '<span class="text-zinc-400">—</span>';
 
                 if (hasProjects) {
-                    const renderProject = (p) => {
-                        const allTech = p.allTech || [];
-                        const matchingTechs = p.matchingTechs || [];
-                        const techDisplay = allTech.length > 0
-                            ? allTech.map(t => matchingTechs.includes(t)
-                                ? `<span class="text-emerald-600 font-semibold">${t}</span>`
-                                : `<span class="text-zinc-500">${t}</span>`
-                            ).join(', ')
-                            : '';
-                        return `<div class="mb-2 last:mb-0">
-                                    <div class="font-medium text-zinc-800 dark:text-zinc-200 leading-snug">${p.name}</div>
-                                    ${techDisplay ? `<div class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">${techDisplay}</div>` : ''}
-                                </div>`;
-                    };
-
-                    const visibleCount = 3;
-                    const visibleProjects = projects.slice(0, visibleCount);
-                    const hiddenProjects = projects.slice(visibleCount);
-
-                    projectDisplay = `<div class="flex flex-col text-[11px] text-left min-w-[200px]">
-                            ${visibleProjects.map(renderProject).join('')}
-                            
-                            ${hiddenProjects.length > 0 ? `
-                                <div id="rank-proj-${idx}" class="hidden flex flex-col border-t border-dashed border-zinc-200 dark:border-zinc-700 pt-2 mt-1">
-                                    ${hiddenProjects.map(renderProject).join('')}
-                                </div>
-                                <button onclick="const el = document.getElementById('rank-proj-${idx}'); el.classList.toggle('hidden'); this.textContent = el.classList.contains('hidden') ? 'View ${hiddenProjects.length} more' : 'Show less';" 
-                                    class="text-[10px] font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-500 dark:hover:text-sky-400 mt-1.5 text-left focus:outline-none">
-                                    View ${hiddenProjects.length} more
-                                </button>
-                            ` : ''}
-                           </div>`;
+                    projectDisplay = `
+                        <button onclick="app.showProjectsModal('${r.fileId || r.name}')" 
+                            class="px-3 py-1.5 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:hover:bg-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-all shadow-sm flex items-center gap-2 mx-auto">
+                            <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                            View Projects (${projects.length})
+                        </button>
+                     `;
                 }
 
                 return `
-                                <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors">
-                                    <td class="px-2 py-3 align-top font-bold text-zinc-900 dark:text-zinc-200">${idx + 1}</td>
-                                    <td class="px-2 py-3 align-top">
+                        <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors h-[60px]"> <!-- Fixed reasonable min-height -->
+                                    <td class="px-2 py-3 align-middle font-bold text-zinc-900 dark:text-zinc-200 text-center">${idx + 1}</td>
+                                    <td class="px-2 py-3 align-middle">
                                         <div class="flex items-center gap-2">
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-[250px]" title="${displayName}">${displayName}</div>
                                             ${r.viewLink ? `<a href="${this.getViewerUrl(r.viewLink)}" target="_blank" class="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex-shrink-0" title="View Resume">
@@ -1218,23 +1313,20 @@ class App {
                                             </a>` : ''}
                                         </div>
                                     </td>
-                                    <td class="px-2 py-3 text-center">
+                                    <td class="px-2 py-3 align-middle text-center">
                                         <div class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${this.getScoreBadgeColor(r.matchScore)}">${r.matchScore || 0}%</div>
                                     </td>
-                                    <td class="px-2 py-3 text-center">
-                                        <span class="text-xs font-medium text-sky-600 dark:text-sky-400">${atsScore}%</span>
-                                    </td>
-                                    <td class="px-2 py-3 text-center">
+                                    <td class="px-2 py-3 align-middle text-center">
                                         <span class="text-emerald-600 dark:text-emerald-400 font-semibold cursor-help" title="${matchedTitle}">${matchedDisplay}</span>
                                     </td>
-                                    <td class="px-2 py-3 align-top">
-                                        <div class="text-xs text-red-500 dark:text-red-400 min-w-[140px]">${missingDisplay}</div>
+                                    <td class="px-2 py-3 align-middle">
+                                        <div class="text-xs text-red-500 dark:text-red-400 min-w-[140px] max-h-[60px] overflow-y-auto custom-scrollbar">${missingDisplay}</div>
                                     </td>
-                                    <td class="px-2 py-3 align-top">
-                                        <div class="text-xs text-emerald-600 dark:text-emerald-400 min-w-[140px]">${projectDisplay}</div>
+                                    <td class="px-2 py-3 align-middle text-center">
+                                        ${projectDisplay}
                                     </td>
-                                    <td class="px-2 py-3 text-center text-zinc-600 dark:text-zinc-400 text-xs">${r.candidateExperience || '0y'}</td>
-                                    <td class="px-2 py-3">
+                                    <td class="px-2 py-3 align-middle text-center text-zinc-600 dark:text-zinc-400 text-xs">${r.candidateExperience || '0y'}</td>
+                                    <td class="px-2 py-3 align-middle">
                                         <div class="flex gap-1 items-center">
                                             <button onclick="app.setCandidateStatus('${r.fileId || r.name}', 'accepted')"
                                                 class="px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${r.status === 'accepted' ? 'bg-emerald-500 text-white' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400'}">✓ Accept</button>
@@ -1413,8 +1505,20 @@ class App {
             const data = await res.json();
 
             if (data.success) {
-                // Remove from local state
-                this.activeJobResumes = this.activeJobResumes.filter(r => (r.fileId || r.name) !== resumeId);
+                // Remove from global pool
+                if (this.allResumes) {
+                    this.allResumes = this.allResumes.filter(r => (r.fileId || r.name) !== resumeId);
+                }
+
+                // Remove from ALL jobs (since it's a global delete)
+                this.jobs.forEach(job => {
+                    if (job.resumes) {
+                        job.resumes = job.resumes.filter(r => (r.fileId || r.name) !== resumeId);
+                    }
+                    if (job.matchResults) {
+                        job.matchResults = job.matchResults.filter(m => m.resumeId !== resumeId);
+                    }
+                });
 
                 // Update UI
                 this.renderResumesList();
@@ -1554,18 +1658,21 @@ class App {
             });
             const data = await res.json();
             if (data.success) {
-                // Add to global resumes (available for all jobs)
-                // Add to global resumes (available for all jobs)
-                this.activeJobResumes.push({
+                // Add to global resumes pool
+                const newResume = {
                     name: file.name,
                     text: data.text,
                     skills: data.skills || [],
-                    matchScore: 0,
                     fileId: data.fileId,
                     viewLink: data.viewLink || data.s3Url,
                     candidateExperience: data.candidateExperience || 0,
                     candidateName: data.candidateName
-                });
+                };
+
+                this.allResumes.push(newResume);
+
+                // activeJobResumes getter will automatically pull it into the current job
+
                 this.renderResumesList();
                 this.updateActionButtons();
                 this.showToast('Resume Added', file.name, 'success');
@@ -1588,11 +1695,12 @@ class App {
             const jdRes = await fetch('/api/extract-skills', {
                 method: 'POST',
                 headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ text: job.jdText })
+                body: JSON.stringify({ text: job.jdText, type: 'JD' })
             });
             const jdData = await jdRes.json();
             if (!jdData.success) throw new Error(jdData.error);
             job.jdSkills = jdData.skills;
+            job.requiredExperience = jdData.requiredExperience || 0;
 
             // 2. Extract Resume Skills in PARALLEL (batches of 3 to respect rate limits)
             const resumesToProcess = this.activeJobResumes.filter(r =>
@@ -1616,6 +1724,24 @@ class App {
                             resume.skills = rData.skills;
                             if (rData.candidateName) resume.candidateName = rData.candidateName;
                             if (rData.candidateExperience) resume.candidateExperience = rData.candidateExperience;
+                            if (rData.parsedDetails) {
+                                if (rData.parsedDetails.employment_gaps) resume.employment_gaps = rData.parsedDetails.employment_gaps;
+                                if (rData.parsedDetails.projects) resume.projects = rData.parsedDetails.projects;
+                            }
+
+                            // Sync to global pool
+                            if (this.allResumes) {
+                                const globalR = this.allResumes.find(gr => (gr.fileId === resume.fileId) || (gr.name === resume.name));
+                                if (globalR) {
+                                    globalR.skills = rData.skills;
+                                    if (rData.candidateName) globalR.candidateName = rData.candidateName;
+                                    if (rData.candidateExperience) globalR.candidateExperience = rData.candidateExperience;
+                                    if (rData.parsedDetails) {
+                                        if (rData.parsedDetails.employment_gaps) globalR.employment_gaps = rData.parsedDetails.employment_gaps;
+                                        if (rData.parsedDetails.projects) globalR.projects = rData.parsedDetails.projects;
+                                    }
+                                }
+                            }
                         }
                     } catch (err) {
                         console.warn('Failed to extract skills for resume:', resume.name, err);
@@ -1725,9 +1851,74 @@ class App {
             const data = await res.json();
 
             // Prepare data for saving
+            // Build map of semantic scores
+            const semanticScores = {};
+            if (data && data.results && Array.isArray(data.results)) {
+                data.results.forEach(item => {
+                    // Python likely returns ID as filename/name
+                    semanticScores[item.id] = (item.score || 0) * 100;
+                });
+            }
+
+            // Prepare data for saving
             this.activeJobResumes.forEach(r => {
-                // If we got embedding scores, blend them or use them
-                // For now, we trust the skill match score primarily but could blend
+                // --- New Matching Logic ---
+                // 1. Skill Match Score (40%)
+                const skillScore = r.skillMatchScore || 0;
+
+                // 2. Experience Score (25%)
+                const jdExp = job.requiredExperience || 4; // Default to 4y if not extracted
+                const resExp = r.candidateExperience || 0;
+                const expScore = Math.min(resExp / Math.max(1, jdExp), 1) * 100;
+
+                // 3. Gap Penalty
+                let gapPenalty = 0;
+                if (r.employment_gaps && r.employment_gaps.total_gap_months > 24) gapPenalty = 20;
+                else if (r.employment_gaps && r.employment_gaps.total_gap_months > 12) gapPenalty = 10;
+
+                // 4. Project Relevance (25%)
+                let projectScore = 0;
+                const totalJDSkills = job.jdSkills ? job.jdSkills.length : 1;
+                if (r.projects && Array.isArray(r.projects) && totalJDSkills > 0) {
+                    const projectTechs = new Set();
+                    r.projects.forEach(p => {
+                        if (p.technologies_used && Array.isArray(p.technologies_used)) {
+                            p.technologies_used.forEach(t => projectTechs.add(t.toLowerCase()));
+                        }
+                    });
+
+                    let matchedProjectSkills = 0;
+                    if (job.jdSkills) {
+                        job.jdSkills.forEach(js => {
+                            const jsLower = js.toLowerCase();
+                            // Check for exact or substring match
+                            let found = false;
+                            if (projectTechs.has(jsLower)) found = true;
+                            else {
+                                for (let pt of projectTechs) {
+                                    if (pt.includes(jsLower) || jsLower.includes(pt)) {
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (found) matchedProjectSkills++;
+                        });
+                    }
+                    projectScore = (matchedProjectSkills / totalJDSkills) * 100;
+                }
+
+                // 5. Semantic Score (10%)
+                const semScore = semanticScores[r.name] || 0;
+
+                // Final Calculation
+                let finalScore = (skillScore * 0.40) +
+                    (expScore * 0.25) +
+                    (projectScore * 0.25) +
+                    (semScore * 0.10);
+
+                finalScore -= gapPenalty;
+                r.matchScore = Math.max(0, Math.round(finalScore));
 
                 matchesToSave.push({
                     resumeId: r.fileId || r.name, // Use fileId if available

@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 
 /**
@@ -135,6 +136,35 @@ public class ApiController {
                 return ResponseEntity.badRequest().body(response);
             }
 
+            // Handle Job Description Extraction
+            if (type.equalsIgnoreCase("JD") || type.equalsIgnoreCase("job-description")) {
+                Map<String, Object> jdDetails = skillExtractorService.extractJobDescriptionDetails(text);
+                
+                List<String> skills = new ArrayList<>();
+                if (jdDetails.containsKey("technical_skills")) {
+                    skills.addAll((List<String>) jdDetails.get("technical_skills"));
+                }
+                
+                response.put("success", true);
+                response.put("type", "JD");
+                response.put("skills", skills);
+                response.put("parsedDetails", jdDetails);
+                response.put("skillCount", skills.size());
+                
+                // Extract required experience
+                 int requiredExperience = 0;
+                if (jdDetails.containsKey("required_experience_years")) {
+                    Object exp = jdDetails.get("required_experience_years");
+                    if (exp instanceof Number) {
+                        requiredExperience = ((Number) exp).intValue();
+                    }
+                }
+                response.put("requiredExperience", requiredExperience);
+
+                return ResponseEntity.ok(response);
+            }
+
+            // Handle Resume Extraction (Default)
             List<String> skills;
             String candidateName = null;
             Map<String, Object> details = null;

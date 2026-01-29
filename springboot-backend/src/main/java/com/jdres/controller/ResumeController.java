@@ -242,6 +242,39 @@ public class ResumeController {
         }
     }
 
+    @GetMapping("/resumes")
+    public ResponseEntity<?> getAllResumes(
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        try {
+            List<Resume> resumes;
+            if (userId != null && !userId.isEmpty()) {
+                resumes = resumeRepository.findByRecruiterId(userId);
+            } else {
+                resumes = resumeRepository.findAll(); // Fallback
+            }
+
+            // Map to response DTO to avoid massive payload
+            List<Map<String, Object>> responseList = resumes.stream().map(r -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("fileId", r.getFileId());
+                map.put("name", r.getName());
+                // Don't send full text to save bandwidth, unless needed for analysis
+                map.put("text", r.getText()); 
+                map.put("skills", r.getSkills());
+                map.put("viewLink", r.getViewLink() != null ? r.getViewLink() : r.getS3Url());
+                map.put("candidateName", r.getCandidateName());
+                map.put("candidateExperience", r.getCandidateExperience());
+                map.put("recruiterId", r.getRecruiterId());
+                map.put("jdId", r.getJdId());
+                return map;
+            }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of("success", true, "resumes", responseList));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
     @DeleteMapping("/resumes/{fileId}")
     public ResponseEntity<?> deleteResume(
             @PathVariable String fileId,

@@ -83,7 +83,8 @@
                 </div>
                 <div>
                     <div class="text-sm font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">SyncPlex</div>
-                    <div class="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 tracking-wide uppercase">Recruiter Workspace</div>
+                    <div class="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 tracking-wide uppercase">
+                        Recruiter Workspace</div>
                 </div>
             </div>
 
@@ -215,131 +216,97 @@
                         </div>
                     </section>
 
-                    <!-- Resume Section -->
+                    <!-- Resume Section (Modified to show Skills) -->
                     <section id="resumeSection"
-                        class="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/50 dark:bg-zinc-900/40">
-                        <div class="flex items-start justify-between gap-2 mb-3">
+                        class="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/50 dark:bg-zinc-900/40 min-h-[300px] flex flex-col transition-all">
+                        <div
+                            class="flex items-start justify-between gap-2 mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-3">
                             <div>
-                                <div class="text-sm font-semibold">Resumes</div>
-                                <div class="text-xs text-zinc-500 dark:text-zinc-400">
-                                    Uploaded: <span id="resumeCount"
+                                <div class="text-sm font-semibold">Analyzed Skills</div>
+                                <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                                    Resumes: <span id="resumeCount"
                                         class="font-bold text-zinc-900 dark:text-zinc-100">0</span>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="relative">
                                 <input type="file" id="resumeFileInput" multiple accept=".pdf,.doc,.docx"
                                     class="hidden">
                                 <input type="file" id="resumeFolderInput" webkitdirectory directory multiple
                                     class="hidden">
 
-                                <button id="uploadResumeBtn"
-                                    class="p-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300"
-                                    title="Upload Files">
+                                <button id="mainUploadBtn"
+                                    class="flex items-center gap-2 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity shadow-sm">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                        stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
+                                        stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5">
                                         <path stroke-linecap="round" stroke-linejoin="round"
-                                            d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                            d="M12 4.5v15m7.5-7.5h-15" />
                                     </svg>
-                                </button>
-                                <button id="folderUploadBtn"
-                                    class="p-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-sky-600 dark:text-sky-400"
-                                    title="Upload Folder">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                        stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
-                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                            d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-                                    </svg>
-                                </button>
-                                <button id="importDriveBtn"
-                                    class="p-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-green-600 dark:text-green-500"
-                                    title="Link Google Drive">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                        stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
-                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                            d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
-                                    </svg>
+                                    Upload Resumes
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Resume List -->
-                        <div id="resumesList"
-                            class="max-h-64 overflow-y-auto pr-1 space-y-2 border-t border-zinc-200 dark:border-zinc-800 pt-3">
-                            <div class="italic text-zinc-500 text-sm py-4 text-center">No resumes uploaded yet.</div>
+                        <!-- Skills Container (Replacing Resume List) -->
+                        <div id="jdRequirementsSection" class="hidden flex-1 flex flex-col gap-4">
+                            <!-- Required Skills -->
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span
+                                        class="text-xs font-bold text-violet-600 dark:text-violet-400 tracking-wider">REQUIRED
+                                        SKILLS</span>
+                                    <span id="requiredSkillsCount" class="text-xs text-zinc-400">0</span>
+                                </div>
+                                <div id="requiredSkillsList" class="flex flex-wrap gap-1.5"></div>
+                            </div>
+
+                            <!-- Preferred Skills -->
+                            <div id="preferredSkillsSection" class="hidden">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span
+                                        class="text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">PREFERRED
+                                        SKILLS</span>
+                                    <span id="preferredSkillsCount" class="text-xs text-zinc-400">0</span>
+                                </div>
+                                <div id="preferredSkillsList" class="flex flex-wrap gap-1.5"></div>
+                            </div>
+
+                            <!-- Experience Display -->
+                            <div
+                                class="mt-auto pt-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                                <div id="expBadge"
+                                    class="hidden inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 text-xs font-medium border border-amber-100 dark:border-amber-800">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span id="expYearsDisplay">0+ years</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Placeholder when no skills extracted -->
+                        <div id="resultsPlaceholder"
+                            class="flex-1 flex flex-col items-center justify-center text-zinc-400 text-center p-4">
+                            <svg class="w-10 h-10 mb-3 opacity-20" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z">
+                                </path>
+                            </svg>
+                            <p class="text-sm font-medium opacity-80">Skills Analysis Standby</p>
+                            <p class="text-xs opacity-50 mt-1 max-w-[200px]">Upload a Job Description to extract skills
+                                and keywords instantly.</p>
+                            <p class="text-xs opacity-40 mt-4 italic">Drag & drop resumes here anytime</p>
                         </div>
                     </section>
 
                 </div>
 
-                <!-- JD Requirements Display (After Extraction) -->
-                <div id="jdRequirementsSection"
-                    class="hidden rounded-xl border border-violet-200 dark:border-violet-900/50 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30 p-4">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex items-center gap-2">
-                            <div class="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/50 grid place-items-center">
-                                <svg class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <div class="text-sm font-semibold text-violet-800 dark:text-violet-200">JD Requirements
-                                    Extracted</div>
-                                <div class="text-xs text-violet-600/70 dark:text-violet-400/70">Skills and experience
-                                    needed for this role</div>
-                            </div>
-                        </div>
-                        <div id="expBadge"
-                            class="hidden px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-semibold flex items-center gap-1">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span id="expYearsDisplay">0+ years</span>
-                        </div>
-                    </div>
-
-                    <!-- Required Skills -->
-                    <div class="mb-3">
-                        <div
-                            class="text-xs font-semibold text-violet-700 dark:text-violet-300 mb-2 flex items-center gap-2">
-                            <span
-                                class="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px]">REQUIRED</span>
-                            <span id="requiredSkillsCount" class="text-zinc-500 dark:text-zinc-400 font-normal">0
-                                skills</span>
-                        </div>
-                        <div id="requiredSkillsList" class="flex flex-wrap gap-1.5">
-                            <!-- Skills tags injected here -->
-                        </div>
-                    </div>
-
-                    <!-- Preferred Skills -->
-                    <div id="preferredSkillsSection" class="hidden">
-                        <div
-                            class="text-xs font-semibold text-violet-700 dark:text-violet-300 mb-2 flex items-center gap-2">
-                            <span
-                                class="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px]">PREFERRED</span>
-                            <span id="preferredSkillsCount" class="text-zinc-500 dark:text-zinc-400 font-normal">0
-                                skills</span>
-                        </div>
-                        <div id="preferredSkillsList" class="flex flex-wrap gap-1.5">
-                            <!-- Preferred skills tags injected here -->
-                        </div>
-                    </div>
-                </div>
+                <!-- JD Requirements Display REMOVED (Moved to Sidebar) -->
 
                 <!-- Action Buttons -->
                 <div
-                    class="flex items-center justify-between gap-4 p-3 rounded-xl bg-zinc-100/50 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-800">
-                    <div id="skillsDisplay" class="hidden flex-1 overflow-x-auto whitespace-nowrap">
-                        <span class="text-xs font-semibold text-zinc-500 mr-2">REQUIRED:</span>
-                        <div id="skillsList" class="inline-flex gap-1"></div>
-                    </div>
-                    <div id="resultsPlaceholder" class="flex-1 text-zinc-400 text-xs italic">
-                        Click "Extract Skills" to analyze JD requirements, then "Match & Rank" to find best candidates.
-                    </div>
-
+                    class="flex items-center justify-end gap-4 p-3 rounded-xl bg-zinc-100/50 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-800">
                     <div class="flex items-center gap-3 flex-none">
 
                         <button id="rankBtn"
@@ -361,6 +328,120 @@
             </div>
         </main>
 
+    </div>
+
+    <!-- Upload Modal (New) -->
+    <div id="uploadModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
+        <div
+            class="w-full max-w-lg scale-95 transform rounded-2xl bg-white p-6 shadow-2xl transition-all duration-300 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <div
+                        class="grid h-8 w-8 place-items-center rounded-lg bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="h-5 w-5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                        </svg>
+                    </div>
+                    <div class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Upload Resumes</div>
+                </div>
+                <button id="uploadModalClose"
+                    class="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Drag & Drop Zone -->
+            <div id="modalDragZone"
+                class="cursor-pointer rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 py-10 text-center transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/60 mb-4">
+                <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                    </path>
+                </svg>
+                <div class="mt-4 flex text-sm text-zinc-600 dark:text-zinc-400 justify-center">
+                    <span class="font-semibold text-zinc-900 dark:text-zinc-200">Click to upload</span>
+                    <span class="pl-1">or drag and drop</span>
+                </div>
+                <p class="text-xs text-zinc-500 dark:text-zinc-500 mt-1">PDF, DOCX, DOC up to 10MB</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-2">
+                <button id="uploadResumeBtn"
+                    class="flex items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="h-4 w-4">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    Select Files
+                </button>
+                <button id="folderUploadBtn"
+                    class="flex items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-sky-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-sky-400 dark:hover:bg-zinc-700 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="h-4 w-4">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                    </svg>
+                    Select Folder
+                </button>
+            </div>
+
+            <div class="pt-2 border-t border-zinc-100 dark:border-zinc-800/50 mt-2">
+                <button id="importDriveBtn"
+                    class="w-full flex items-center justify-center gap-2 rounded-xl p-2 text-sm font-medium text-green-600 hover:bg-green-50 dark:text-green-500 dark:hover:bg-green-900/20 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="h-4 w-4">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                    </svg>
+                    Import from Google Drive
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects View Modal -->
+    <div id="projectsModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
+        <div
+            class="w-full max-w-2xl scale-95 transform rounded-2xl bg-white p-6 shadow-2xl transition-all duration-300 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between mb-4 flex-none">
+                <div class="flex items-center gap-2">
+                    <div
+                        class="grid h-8 w-8 place-items-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="h-5 w-5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Candidate Projects</div>
+                        <div id="projectsModalCandidateName" class="text-xs text-zinc-500 dark:text-zinc-400">Candidate
+                            Name</div>
+                    </div>
+                </div>
+                <button id="projectsModalClose"
+                    class="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            <div id="projectsModalContent" class="overflow-y-auto pr-2 space-y-4 flex-1">
+                <!-- Projects injected here -->
+            </div>
+        </div>
     </div>
 
     <!-- Drive Import Modal -->
