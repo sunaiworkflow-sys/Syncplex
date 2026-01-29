@@ -258,8 +258,8 @@ public class ResumeController {
                 Map<String, Object> map = new HashMap<>();
                 map.put("fileId", r.getFileId());
                 map.put("name", r.getName());
-                // Don't send full text to save bandwidth, unless needed for analysis
-                map.put("text", r.getText()); 
+                // Optimized: Don't send full text list to improve load time
+                // map.put("text", r.getText()); 
                 map.put("skills", r.getSkills());
                 map.put("viewLink", r.getViewLink() != null ? r.getViewLink() : r.getS3Url());
                 map.put("candidateName", r.getCandidateName());

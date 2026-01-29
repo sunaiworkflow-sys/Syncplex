@@ -487,7 +487,8 @@ public class JobDescriptionController {
                         match.getMatchedKeywordsList() != null ? match.getMatchedKeywordsList() : new ArrayList<>());
                 result.put("relevantProjects", relevantProjects);
                 result.put("allSkills", resumeSkills != null ? resumeSkills : new ArrayList<>());
-                result.put("resumeText", resume.getText() != null ? resume.getText() : "");
+                // Optimized: Don't send full text
+                // result.put("resumeText", resume.getText() != null ? resume.getText() : "");
 
                 // Display strings
                 result.put("matchedSkills", matchedSkillsList.size() + "/" + requiredSkills.size());

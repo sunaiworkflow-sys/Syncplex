@@ -1841,7 +1841,7 @@ class App {
             this.updateUIForActiveJob();
 
             const resumeData = {};
-            this.activeJobResumes.forEach(r => resumeData[r.name] = r.text);
+            this.activeJobResumes.forEach(r => resumeData[r.fileId || r.name] = r.text || "");
 
             const res = await fetch('/api/rank-resumes', {
                 method: 'POST',

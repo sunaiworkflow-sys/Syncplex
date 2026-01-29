@@ -12,6 +12,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jdres.model.Resume;
+import java.util.Optional;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
@@ -31,17 +34,20 @@ public class ApiController {
     private final SkillExtractorService skillExtractorService;
     private final MatchCalculatorService matchCalculatorService;
     private final FaissClientService faissClientService;
+    private final com.jdres.repository.ResumeRepository resumeRepository;
 
     @Autowired
     public ApiController(
             TextExtractorService textExtractorService,
             SkillExtractorService skillExtractorService,
             MatchCalculatorService matchCalculatorService,
-            FaissClientService faissClientService) {
+            FaissClientService faissClientService,
+            com.jdres.repository.ResumeRepository resumeRepository) {
         this.textExtractorService = textExtractorService;
         this.skillExtractorService = skillExtractorService;
         this.matchCalculatorService = matchCalculatorService;
         this.faissClientService = faissClientService;
+        this.resumeRepository = resumeRepository;
     }
 
     /**
@@ -294,13 +300,32 @@ public class ApiController {
                 return ResponseEntity.badRequest().body(response);
             }
 
+            // Populate missing text from DB
+            // We use a new map to ensure mutability
+            Map<String, String> enrichedResumeData = new HashMap<>(resumeData);
+            
+            for (Map.Entry<String, String> entry : enrichedResumeData.entrySet()) {
+                if (entry.getValue() == null || entry.getValue().trim().isEmpty()) {
+                    String identifier = entry.getKey();
+                    // Try to find by File ID
+                    Optional<Resume> resumeOpt = resumeRepository.findByFileId(identifier);
+                    if (resumeOpt.isPresent()) {
+                        enrichedResumeData.put(identifier, resumeOpt.get().getText());
+                    } else {
+                        // Fallback: This might be a name if fileId wasn't used?
+                        // But usually we expect fileId.
+                        log.warn("Could not find text for resume identifier: {}", identifier);
+                    }
+                }
+            }
+
             // Check if text ranking service is healthy
             if (!faissClientService.isHealthy()) {
                 response.put("error", "Text ranking service unavailable. Please start the Python microservice.");
                 return ResponseEntity.status(503).body(response);
             }
 
-            Map<String, Object> results = faissClientService.rankResumes(jdText, resumeData, topK);
+            Map<String, Object> results = faissClientService.rankResumes(jdText, enrichedResumeData, topK);
 
             response.put("success", true);
             response.putAll(results);
