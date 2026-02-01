@@ -4,6 +4,7 @@ import com.jdres.service.FaissClientService;
 import com.jdres.service.MatchCalculatorService;
 import com.jdres.service.SkillExtractorService;
 import com.jdres.service.TextExtractorService;
+import com.jdres.service.TokenUsageTracker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +36,7 @@ public class ApiController {
     private final MatchCalculatorService matchCalculatorService;
     private final FaissClientService faissClientService;
     private final com.jdres.repository.ResumeRepository resumeRepository;
+    private final TokenUsageTracker tokenUsageTracker;
 
     @Autowired
     public ApiController(
@@ -42,12 +44,14 @@ public class ApiController {
             SkillExtractorService skillExtractorService,
             MatchCalculatorService matchCalculatorService,
             FaissClientService faissClientService,
-            com.jdres.repository.ResumeRepository resumeRepository) {
+            com.jdres.repository.ResumeRepository resumeRepository,
+            TokenUsageTracker tokenUsageTracker) {
         this.textExtractorService = textExtractorService;
         this.skillExtractorService = skillExtractorService;
         this.matchCalculatorService = matchCalculatorService;
         this.faissClientService = faissClientService;
         this.resumeRepository = resumeRepository;
+        this.tokenUsageTracker = tokenUsageTracker;
     }
 
     /**
@@ -354,6 +358,18 @@ public class ApiController {
         response.put("success", true);
         response.put("services", services);
 
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/token-usage
+     * Get OpenAI token usage statistics
+     */
+    @GetMapping("/token-usage")
+    public ResponseEntity<Map<String, Object>> getTokenUsage() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("usage", tokenUsageTracker.getUsageStats());
         return ResponseEntity.ok(response);
     }
 }

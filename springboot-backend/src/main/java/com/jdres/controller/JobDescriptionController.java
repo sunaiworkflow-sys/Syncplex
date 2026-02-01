@@ -121,26 +121,15 @@ public class JobDescriptionController {
      */
     @GetMapping("/v2/job-descriptions")
     public ResponseEntity<?> getAllJobDescriptions(
-            @RequestHeader(value = "X-User-Id", required = false) String userId,
-            jakarta.servlet.http.HttpServletRequest request) {
-
-        // Debug: Print all headers
-        System.out.println("🔍 Debug: Headers for /api/job-descriptions:");
-        java.util.Enumeration<String> headerNames = request.getHeaderNames();
-        while (headerNames.hasMoreElements()) {
-            String key = headerNames.nextElement();
-            System.out.println("  - " + key + ": " + request.getHeader(key));
-        }
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
 
         List<JobDescription> jds;
 
         // Filter by user - REQUIRED for security
         if (userId != null && !userId.trim().isEmpty()) {
             jds = jobDescriptionRepository.findByRecruiterId(userId);
-            System.out.println("📥 Loading JDs for user: " + userId + " - Found: " + jds.size());
         } else {
             // No userId = No data (security: don't expose all data)
-            System.out.println("⚠️ No userId provided for /api/job-descriptions - returning empty list");
             jds = new java.util.ArrayList<>();
         }
 

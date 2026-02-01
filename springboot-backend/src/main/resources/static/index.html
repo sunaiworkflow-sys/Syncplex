@@ -72,6 +72,26 @@
 <body class="bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 min-h-screen transition-colors duration-200"
     id="appBody">
 
+    <!-- Loading Overlay (shown while auth check and data loading) -->
+    <div id="appLoadingOverlay"
+        class="fixed inset-0 bg-zinc-50 dark:bg-zinc-950 z-[100] flex items-center justify-center transition-opacity duration-300">
+        <div class="text-center">
+            <div
+                class="h-16 w-16 mx-auto rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-700 dark:from-white dark:to-zinc-300 grid place-items-center shadow-xl">
+                <span class="text-2xl font-bold text-white dark:text-black">SP</span>
+            </div>
+            <div class="mt-4 flex items-center justify-center gap-2">
+                <div class="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce"
+                    style="animation-delay: 0ms"></div>
+                <div class="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce"
+                    style="animation-delay: 150ms"></div>
+                <div class="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce"
+                    style="animation-delay: 300ms"></div>
+            </div>
+            <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">Loading workspace...</p>
+        </div>
+    </div>
+
     <!-- Top bar -->
     <nav class="fixed top-0 left-0 right-0 z-50 border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 shadow-sm transition-colors duration-200"
         id="topBar">
@@ -98,6 +118,19 @@
                     </svg>
                     <span>Light</span>
                 </button>
+
+                <!-- Token Usage Indicator -->
+                <div id="tokenUsageIndicator"
+                    class="hidden items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-medium cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
+                    title="OpenAI API Token Usage">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="h-3.5 w-3.5 text-emerald-500">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                    </svg>
+                    <span id="tokenCountDisplay">0</span>
+                    <span class="text-zinc-400">/min</span>
+                </div>
 
                 <div class="flex items-center gap-3 pl-4 border-l border-zinc-200 dark:border-zinc-800"
                     id="userProfile">
@@ -128,8 +161,33 @@
                 </button>
             </div>
 
-            <div id="jobsList" class="space-y-2 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
-                <!-- Job items will be injected here -->
+            <!-- Current Job (Active/New) -->
+            <div id="jobsList" class="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                <!-- Current job item will be injected here -->
+            </div>
+
+            <!-- History Section -->
+            <div class="mt-4" id="historySection">
+                <button id="historyToggleBtn"
+                    class="w-full flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>History</span>
+                        <span id="historyCount"
+                            class="px-1.5 py-0.5 text-[10px] rounded-full bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">0</span>
+                    </div>
+                    <svg id="historyChevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5 transition-transform">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                </button>
+                <div id="historyList" class="hidden space-y-1.5 mt-2 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
+                    <!-- History items will be injected here -->
+                </div>
             </div>
 
             <div class="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3" id="tipBox">

@@ -1,6 +1,7 @@
 package com.jdres.model;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -11,6 +12,7 @@ public class Resume {
     @Id
     private String id;
 
+    @Indexed
     private String fileId; // Google Drive ID
     private String name;
     private String text;
@@ -34,6 +36,7 @@ public class Resume {
     private java.util.Map<String, Object> parsedDetails;
 
     // Multi-tenant support
+    @Indexed
     private String recruiterId; // Firebase UID
 
     // Resume Isolation

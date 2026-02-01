@@ -14,6 +14,7 @@ class App {
         this.activeJobId = 'job-1';
         this.theme = 'dark';
         this.allResumes = []; // Global pool of user's resumes
+        this.historyExpanded = false; // Track history panel state
 
         // Check for Google Viewer support
         this.getViewerUrl = (url) => {
@@ -106,7 +107,14 @@ class App {
             requiredSkillsCount: document.getElementById('requiredSkillsCount'),
             preferredSkillsSection: document.getElementById('preferredSkillsSection'),
             preferredSkillsList: document.getElementById('preferredSkillsList'),
-            preferredSkillsCount: document.getElementById('preferredSkillsCount')
+            preferredSkillsCount: document.getElementById('preferredSkillsCount'),
+
+            // History Section
+            historySection: document.getElementById('historySection'),
+            historyToggleBtn: document.getElementById('historyToggleBtn'),
+            historyChevron: document.getElementById('historyChevron'),
+            historyList: document.getElementById('historyList'),
+            historyCount: document.getElementById('historyCount')
         };
 
         this.init();
@@ -129,9 +137,11 @@ class App {
 
                 console.log('🔐 User authenticated:', user.uid);
 
-                // NOW load data after user is authenticated
-                await this.loadSavedResumes();
-                await this.loadSavedJD();
+                // Load data in PARALLEL for faster initialization
+                const [resumesResult, jdsResult] = await Promise.all([
+                    this.loadSavedResumes(),
+                    this.loadSavedJD()
+                ]);
 
                 // If no jobs were loaded, ensure we have at least one default job
                 if (this.jobs.length === 0) {
@@ -141,14 +151,29 @@ class App {
                     this.activeJobId = 'job-1';
                 }
 
-                // Load saved matches for active job
-                if (this.activeJob && this.activeJob.jdId) {
-                    await this.loadMatchesForJob(this.activeJob);
-                }
-
-                // Now render the UI with user-specific data
+                // Render UI IMMEDIATELY (don't wait for matches)
                 this.renderJobsList();
                 this.updateUIForActiveJob();
+
+                // HIDE loading overlay - app is now ready to use!
+                this.hideLoadingOverlay();
+
+                // Start token usage tracking
+                this.initTokenUsageTracking();
+
+                // Load matches for active job in BACKGROUND (non-blocking)
+                if (this.activeJob && this.activeJob.jdId) {
+                    this.loadMatchesForJob(this.activeJob).then(() => {
+                        // Re-render results view after matches load
+                        this.updateResultsView();
+
+                        // PRELOAD matches for other jobs in background for instant switching
+                        this.preloadAllMatches();
+                    });
+                } else {
+                    // No active job with JD, still preload others
+                    this.preloadAllMatches();
+                }
             } else {
                 window.location.href = 'landing.html';
             }
@@ -159,6 +184,86 @@ class App {
 
         // Attach event listeners first
         this.attachEventListeners();
+    }
+
+    // Hide the loading overlay with smooth transition
+    hideLoadingOverlay() {
+        const overlay = document.getElementById('appLoadingOverlay');
+        if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 300); // Match transition duration
+        }
+    }
+
+    // Initialize token usage tracking UI
+    initTokenUsageTracking() {
+        const indicator = document.getElementById('tokenUsageIndicator');
+        if (!indicator) return;
+
+        // Show the indicator
+        indicator.classList.remove('hidden');
+        indicator.classList.add('flex');
+
+        // Fetch and update immediately
+        this.updateTokenUsage();
+
+        // Update every 30 seconds
+        setInterval(() => this.updateTokenUsage(), 30000);
+
+        // Add click handler to show detailed stats
+        indicator.addEventListener('click', () => this.showTokenStats());
+    }
+
+    // Fetch and update token usage display
+    async updateTokenUsage() {
+        try {
+            const response = await fetch('/api/token-usage');
+            const data = await response.json();
+
+            if (data.success && data.usage) {
+                const tokensPerMin = data.usage.tokensLastMinute || 0;
+                const display = document.getElementById('tokenCountDisplay');
+                if (display) {
+                    display.textContent = this.formatNumber(tokensPerMin);
+                }
+
+                // Store full usage data for tooltip
+                this.tokenUsageData = data.usage;
+
+                // Update indicator title with more details
+                const indicator = document.getElementById('tokenUsageIndicator');
+                if (indicator) {
+                    indicator.title = `Tokens/min: ${tokensPerMin}\nTotal: ${this.formatNumber(data.usage.totalTokensUsed || 0)}\nCost: ${data.usage.estimatedCostUSD || '$0.00'}`;
+                }
+            }
+        } catch (error) {
+            console.warn('Could not fetch token usage:', error);
+        }
+    }
+
+    // Format large numbers (e.g., 1500 -> 1.5K)
+    formatNumber(num) {
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toString();
+    }
+
+    // Show detailed token usage stats
+    showTokenStats() {
+        const usage = this.tokenUsageData;
+        if (!usage) return;
+
+        const message = `📊 OpenAI Token Usage Stats\n\n` +
+            `⚡ Last Minute: ${this.formatNumber(usage.tokensLastMinute || 0)} tokens\n` +
+            `📈 Last 5 Minutes: ${this.formatNumber(usage.tokensLast5Minutes || 0)} tokens\n` +
+            `📊 Total Used: ${this.formatNumber(usage.totalTokensUsed || 0)} tokens\n` +
+            `🔄 API Calls: ${usage.totalApiCalls || 0}\n` +
+            `⏱️ Uptime: ${usage.uptimeMinutes || 0} min\n` +
+            `💰 Est. Cost: ${usage.estimatedCostUSD || '$0.00'}`;
+
+        alert(message);
     }
 
     // Load all saved JDs from database
@@ -214,8 +319,18 @@ class App {
         }
     }
 
-    // Load saved match results for a specific job
-    async loadMatchesForJob(job) {
+    // Load saved match results for a specific job (with caching)
+    async loadMatchesForJob(job, forceRefresh = false) {
+        if (!job || !job.jdId) return;
+
+        // CHECK CACHE FIRST - Skip API call if matches already loaded
+        if (!forceRefresh && job.matchResults && job.matchResults.length > 0) {
+            console.log(`⚡ Using cached matches for ${job.title} (${job.matchResults.length} matches)`);
+            // Just apply cached data to resumes without API call
+            this.applyCachedMatchesToResumes(job);
+            return;
+        }
+
         // Reset resume state to prevent bleeding from other jobs
         // NOTE: candidateName and candidateExperience are resume properties (not job-specific), so don't delete them
         this.activeJobResumes.forEach(r => {
@@ -226,12 +341,12 @@ class App {
             delete r.missingSkillsList;
             delete r.relevantProjects;
         });
-        if (!job || !job.jdId) return;
 
         try {
             const userId = this.getUserId();
             if (!userId) return;
 
+            console.log(`📥 Fetching matches from server for ${job.title}...`);
             const res = await fetch(`/api/job-descriptions/${job.jdId}/matches?limit=100`, {
                 headers: this.getAuthHeaders()
             });
@@ -240,67 +355,100 @@ class App {
             if (data.success && data.matches && data.matches.length > 0) {
                 console.log(`✅ Loaded ${data.matches.length} saved matches for ${job.title}`);
 
-                // Store matches in the job
+                // Store matches in the job (CACHE)
                 job.matchResults = data.matches;
                 job.status = 'ranked'; // Has saved results
+                job.matchesLoadedAt = Date.now(); // Track when loaded
 
-                // Populate job-specific resumes from match results
-                data.matches.forEach(match => {
-                    // Find or create resume in job's resumes array
-                    let resume = this.activeJobResumes.find(r =>
-                        r.fileId === match.resumeId ||
-                        r.name === match.resumeName
-                    );
-
-                    // If resume doesn't exist in this job yet, add it
-                    if (!resume) {
-                        resume = {
-                            fileId: match.resumeId,
-                            name: match.resumeName || match.candidateName || 'Unknown',
-                            candidateName: match.candidateName,
-                            viewLink: match.viewLink || match.s3Url,
-                            skills: [],
-                            text: '' // Will be loaded if needed
-                        };
-                        job.resumes.push(resume);
-                    }
-
-                    // Update resume with match data
-                    let score = match.matchScore || match.finalScore || 0;
-                    // Fix: Clamp score to 100 to prevent 10000% display issue
-                    if (score > 100) {
-                        console.warn(`⚠️ Found abnormal score ${score} for ${resume.name}, normalizing...`);
-                        score = Math.min(score, 100);
-                    }
-
-                    let skillScore = match.skillMatchScore || 0;
-                    if (skillScore > 100) {
-                        skillScore = Math.min(skillScore, 100);
-                    }
-
-                    resume.matchScore = score;
-                    resume.candidateName = match.candidateName;
-                    resume.candidateExperience = match.candidateExperience;
-                    resume.hasGap = match.hasGap;
-                    resume.gapMonths = match.gapMonths;
-                    resume.matchedSkillsList = match.matchedSkillsList || [];
-                    resume.missingSkillsList = match.missingSkillsList || [];
-                    resume.skillMatchScore = skillScore;
-                    resume.relevantProjects = match.relevantProjects || [];
-                    resume.status = match.candidateStatus; // Accept/Review/Reject status
-
-                    // Fix: Ensure we have the full skill list for re-matching
-                    if (match.allSkills && Array.isArray(match.allSkills)) {
-                        resume.skills = match.allSkills;
-                    }
-                    if (match.resumeText) {
-                        resume.text = match.resumeText;
-                    }
-                });
+                // Apply to resumes
+                this.applyCachedMatchesToResumes(job);
             }
         } catch (e) {
             console.warn('Could not load matches for job:', e);
         }
+    }
+
+    // Apply cached match results to resumes (no API call)
+    applyCachedMatchesToResumes(job) {
+        if (!job.matchResults) return;
+
+        job.matchResults.forEach(match => {
+            // Find or create resume in job's resumes array
+            let resume = this.activeJobResumes.find(r =>
+                r.fileId === match.resumeId ||
+                r.name === match.resumeName
+            );
+
+            // If resume doesn't exist in this job yet, add it
+            if (!resume) {
+                resume = {
+                    fileId: match.resumeId,
+                    name: match.resumeName || match.candidateName || 'Unknown',
+                    candidateName: match.candidateName,
+                    viewLink: match.viewLink || match.s3Url,
+                    skills: [],
+                    text: '' // Will be loaded if needed
+                };
+                job.resumes.push(resume);
+            }
+
+            // Update resume with match data
+            let score = match.matchScore || match.finalScore || 0;
+            if (score > 100) {
+                score = Math.min(score, 100);
+            }
+
+            let skillScore = match.skillMatchScore || 0;
+            if (skillScore > 100) {
+                skillScore = Math.min(skillScore, 100);
+            }
+
+            resume.matchScore = score;
+            resume.candidateName = match.candidateName;
+            resume.candidateExperience = match.candidateExperience;
+            resume.hasGap = match.hasGap;
+            resume.gapMonths = match.gapMonths;
+            resume.matchedSkillsList = match.matchedSkillsList || [];
+            resume.missingSkillsList = match.missingSkillsList || [];
+            resume.skillMatchScore = skillScore;
+            resume.relevantProjects = match.relevantProjects || [];
+            resume.status = match.candidateStatus;
+
+            if (match.allSkills && Array.isArray(match.allSkills)) {
+                resume.skills = match.allSkills;
+            }
+            if (match.resumeText) {
+                resume.text = match.resumeText;
+            }
+        });
+    }
+
+    // Preload matches for all jobs in background (for instant job switching)
+    async preloadAllMatches() {
+        const jobsToPreload = this.jobs.filter(job =>
+            job.jdId &&
+            job.id !== this.activeJobId &&
+            !job.matchResults // Only load if not already cached
+        );
+
+        if (jobsToPreload.length === 0) return;
+
+        console.log(`🔄 Preloading matches for ${jobsToPreload.length} jobs in background...`);
+
+        // Load matches in parallel but with some throttling to not overwhelm the server
+        // Using Promise.allSettled to not stop if some fail
+        const chunks = [];
+        for (let i = 0; i < jobsToPreload.length; i += 2) {
+            chunks.push(jobsToPreload.slice(i, i + 2));
+        }
+
+        for (const chunk of chunks) {
+            await Promise.allSettled(
+                chunk.map(job => this.loadMatchesForJob(job))
+            );
+        }
+
+        console.log('✅ Background preloading complete - job switching is now instant!');
     }
 
     // Debounced save function for JD (waits 2 seconds after user stops typing)
@@ -601,6 +749,11 @@ class App {
 
         // New Job
         this.dom.newJobBtn.addEventListener('click', () => this.createNewJob());
+
+        // History Toggle
+        if (this.dom.historyToggleBtn) {
+            this.dom.historyToggleBtn.addEventListener('click', () => this.toggleHistory());
+        }
 
 
         // Job Title Rename (Manual Save only)
@@ -960,27 +1113,30 @@ class App {
         if (!this.dom.jobsList) return;
 
         this.dom.jobsList.innerHTML = '';
-        this.jobs.forEach(job => {
-            const isActive = job.id === this.activeJobId;
+
+        // Only show the currently active job in the main list
+        const activeJob = this.jobs.find(job => job.id === this.activeJobId);
+        if (activeJob) {
+            const job = activeJob;
             const el = document.createElement('div');
-            el.className = `w-full rounded-xl border p-3 transition ${isActive
-                ? 'border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/70'
-                : 'border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/40'
-                }`;
+            el.className = 'w-full rounded-xl border p-3 transition border-sky-300 bg-sky-50/50 dark:border-sky-700/50 dark:bg-sky-900/20 ring-2 ring-sky-500/30';
             const hasSkills = job.jdSkills && job.jdSkills.length > 0;
             const isRanked = job.status === 'ranked' || job.matchResults;
 
             el.innerHTML = `
                 <div class="flex items-start justify-between gap-2">
-                    <div class="min-w-0 flex-1 cursor-pointer" data-job-select="${job.id}">
-                        <div class="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-200">${job.title}</div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2">
+                            <div class="h-2 w-2 rounded-full bg-sky-500 animate-pulse"></div>
+                            <span class="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">Current</span>
+                        </div>
+                        <div class="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-200 mt-1">${job.title}</div>
                         <div class="flex items-center gap-2 mt-0.5">
                             <span class="text-xs text-zinc-500 dark:text-zinc-400">${job.createdAt}</span>
                             ${hasSkills ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full ${isRanked ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400'}">${isRanked ? '✓ Ranked' : job.jdSkills.length + ' skills'}</span>` : ''}
                         </div>
                     </div>
                     <div class="flex items-center gap-1">
-                        ${isActive ? '<div class="h-2 w-2 rounded-full bg-sky-400"></div>' : ''}
                         <button class="delete-job-btn p-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition" data-job-id="${job.id}" title="Delete Job">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -990,14 +1146,74 @@ class App {
                 </div>
             `;
 
-            // Click on job title to select
-            el.querySelector('[data-job-select]').onclick = async () => {
+            // Click delete button
+            el.querySelector('.delete-job-btn').onclick = (e) => {
+                e.stopPropagation();
+                this.deleteJob(job.id);
+            };
+
+            this.dom.jobsList.appendChild(el);
+        }
+
+        // Render history list (all jobs except active)
+        this.renderHistory();
+    }
+
+    // Render History section with all jobs except the active one
+    renderHistory() {
+        if (!this.dom.historyList || !this.dom.historyCount) return;
+
+        const historyJobs = this.jobs.filter(job => job.id !== this.activeJobId);
+        this.dom.historyCount.textContent = historyJobs.length;
+
+        // Show/hide history section if no history
+        if (this.dom.historySection) {
+            this.dom.historySection.style.display = historyJobs.length > 0 ? 'block' : 'none';
+        }
+
+        this.dom.historyList.innerHTML = '';
+
+        historyJobs.forEach(job => {
+            const el = document.createElement('div');
+            el.className = 'w-full rounded-lg border p-2.5 transition cursor-pointer border-zinc-200 bg-white hover:bg-zinc-50 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900/40 dark:hover:bg-zinc-800/60 dark:hover:border-zinc-700';
+            const hasSkills = job.jdSkills && job.jdSkills.length > 0;
+            const isRanked = job.status === 'ranked' || job.matchResults;
+
+            el.innerHTML = `
+                <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0 flex-1" data-history-select="${job.id}">
+                        <div class="truncate text-xs font-medium text-zinc-700 dark:text-zinc-300">${job.title}</div>
+                        <div class="flex items-center gap-1.5 mt-0.5">
+                            <span class="text-[10px] text-zinc-400 dark:text-zinc-500">${job.createdAt}</span>
+                            ${hasSkills ? `<span class="text-[9px] px-1 py-0.5 rounded ${isRanked ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400'}">${isRanked ? '✓' : job.jdSkills.length}</span>` : ''}
+                        </div>
+                    </div>
+                    <button class="delete-history-btn p-1 rounded text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:text-zinc-600 dark:hover:bg-red-900/20 transition opacity-0 group-hover:opacity-100" data-job-id="${job.id}" title="Delete">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+
+            // Make the whole item hoverable for delete button visibility
+            el.classList.add('group');
+
+            // Click on history item to open it (OPTIMIZED: render first, load matches in background)
+            el.querySelector('[data-history-select]').onclick = () => {
                 this.activeJobId = job.id;
-                // ALWAYS reload matches to reset resume statuses for this job
+
+                // Render UI IMMEDIATELY
+                this.renderJobsList();
+                this.updateUIForActiveJob();
+
+                // Load matches in BACKGROUND (uses cache if available - instant!)
                 if (job.jdId) {
-                    await this.loadMatchesForJob(job);
+                    this.loadMatchesForJob(job).then(() => {
+                        this.updateResultsView();
+                    });
                 } else {
-                    // No jdId means new job - reset job-specific data only (keep name/experience)
+                    // No jdId means new job - reset job-specific data only
                     this.activeJobResumes.forEach(r => {
                         r.status = null;
                         r.matchScore = 0;
@@ -1007,18 +1223,34 @@ class App {
                         delete r.relevantProjects;
                     });
                 }
-                this.renderJobsList();
-                this.updateUIForActiveJob();
+
+                this.showToast('Job Opened', `Switched to "${job.title}"`, 'info');
             };
 
             // Click delete button
-            el.querySelector('.delete-job-btn').onclick = (e) => {
-                e.stopPropagation();
-                this.deleteJob(job.id);
-            };
+            const deleteBtn = el.querySelector('.delete-history-btn');
+            if (deleteBtn) {
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.deleteJob(job.id);
+                };
+            }
 
-            this.dom.jobsList.appendChild(el);
+            this.dom.historyList.appendChild(el);
         });
+    }
+
+    // Toggle history panel visibility
+    toggleHistory() {
+        this.historyExpanded = !this.historyExpanded;
+
+        if (this.dom.historyList) {
+            this.dom.historyList.classList.toggle('hidden', !this.historyExpanded);
+        }
+
+        if (this.dom.historyChevron) {
+            this.dom.historyChevron.style.transform = this.historyExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
     }
 
     async deleteJob(jobId) {

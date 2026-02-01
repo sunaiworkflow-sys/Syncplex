@@ -27,6 +27,7 @@ public class SkillExtractorService {
     private final WebClient openaiWebClient;
     private final WebClient geminiWebClient;
     private final ObjectMapper objectMapper;
+    private final TokenUsageTracker tokenUsageTracker;
 
     @Value("${openai.api-key}")
     private String openaiApiKey;
@@ -37,7 +38,9 @@ public class SkillExtractorService {
     @Value("${gemini.api-key:}")
     private String geminiApiKey;
 
-    public SkillExtractorService() {
+    public SkillExtractorService(TokenUsageTracker tokenUsageTracker) {
+        this.tokenUsageTracker = tokenUsageTracker;
+        
         // OpenAI WebClient
         this.openaiWebClient = WebClient.builder()
                 .baseUrl("https://api.openai.com/v1")
@@ -126,7 +129,7 @@ public class SkillExtractorService {
             if (response != null) {
                 JsonNode root = objectMapper.readTree(response);
 
-                // Log token usage
+                // Log token usage and track it
                 JsonNode usage = root.path("usage");
                 if (!usage.isMissingNode()) {
                     int promptTokens = usage.path("prompt_tokens").asInt();
@@ -134,6 +137,9 @@ public class SkillExtractorService {
                     int totalTokens = usage.path("total_tokens").asInt();
                     log.info("📊 Token Usage: {} prompt + {} completion = {} total tokens",
                             promptTokens, completionTokens, totalTokens);
+                    
+                    // Track token usage
+                    tokenUsageTracker.recordUsage(promptTokens, completionTokens, totalTokens);
                 }
 
                 String content = root.path("choices").get(0).path("message").path("content").asText().trim();
@@ -376,6 +382,18 @@ public class SkillExtractorService {
 
             if (response != null) {
                 JsonNode root = objectMapper.readTree(response);
+                
+                // Track token usage for JD extraction
+                JsonNode usage = root.path("usage");
+                if (!usage.isMissingNode()) {
+                    int promptTokens = usage.path("prompt_tokens").asInt();
+                    int completionTokens = usage.path("completion_tokens").asInt();
+                    int totalTokens = usage.path("total_tokens").asInt();
+                    log.info("📊 JD Token Usage: {} prompt + {} completion = {} total",
+                            promptTokens, completionTokens, totalTokens);
+                    tokenUsageTracker.recordUsage(promptTokens, completionTokens, totalTokens);
+                }
+                
                 String content = root.path("choices").get(0).path("message").path("content").asText().trim();
                 content = content.replaceAll("```json\\s*|```\\s*", "");
                 log.info("✅ OpenAI JD extraction successful");
