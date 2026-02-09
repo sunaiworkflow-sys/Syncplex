@@ -372,4 +372,148 @@ public class ApiController {
         response.put("usage", tokenUsageTracker.getUsageStats());
         return ResponseEntity.ok(response);
     }
+
+    @Autowired
+    private com.jdres.service.RecruitmentIntelligenceService recruitmentIntelligenceService;
+
+    @Autowired 
+    private com.jdres.repository.JobDescriptionRepository jobDescriptionRepository;
+
+    /**
+     * POST /api/recruitment-intelligence
+     * Compute recruitment intelligence score using exact formulas:
+     * - Domain Fit Score (30%)
+     * - Execution Score (30%)
+     * - Delivery Risk Score (25%)
+     * - Scale Bonus (+10/+5)
+     * - PMO Risk Penalty (-10/-20)
+     * 
+     * Returns STRICT JSON output with scores and evidence.
+     */
+    @PostMapping("/recruitment-intelligence")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<Map<String, Object>> computeRecruitmentIntelligence(@RequestBody Map<String, Object> request) {
+        try {
+            String resumeId = (String) request.get("resumeId");
+            String jdId = (String) request.get("jdId");
+            
+            // Alternatively accept raw text for direct scoring
+            String resumeText = (String) request.get("resumeText");
+            String jdText = (String) request.get("jdText");
+            Map<String, Object> resumeParsedDetails = (Map<String, Object>) request.get("resumeParsedDetails");
+            Map<String, Object> jdParsedDetails = (Map<String, Object>) request.get("jdParsedDetails");
+
+            com.jdres.model.Resume resume = null;
+            com.jdres.model.JobDescription jd = null;
+
+            // Load from DB if IDs provided
+            if (resumeId != null && !resumeId.isEmpty()) {
+                Optional<com.jdres.model.Resume> resumeOpt = resumeRepository.findByFileId(resumeId);
+                if (resumeOpt.isPresent()) {
+                    resume = resumeOpt.get();
+                }
+            }
+            if (jdId != null && !jdId.isEmpty()) {
+                Optional<com.jdres.model.JobDescription> jdOpt = jobDescriptionRepository.findByJdId(jdId);
+                if (jdOpt.isPresent()) {
+                    jd = jdOpt.get();
+                }
+            }
+
+            // If not found in DB, create temporary objects from request
+            if (resume == null) {
+                resume = new com.jdres.model.Resume();
+                resume.setName((String) request.getOrDefault("candidateName", "Unknown"));
+                resume.setText(resumeText != null ? resumeText : "");
+                if (resumeParsedDetails != null) {
+                    resume.setParsedDetails(resumeParsedDetails);
+                }
+            }
+            if (jd == null) {
+                jd = new com.jdres.model.JobDescription();
+                jd.setText(jdText != null ? jdText : "");
+                if (jdParsedDetails != null) {
+                    jd.setParsedDetails(jdParsedDetails);
+                }
+            }
+
+            // Extract structured data
+            var resumeData = recruitmentIntelligenceService.extractResumeData(resume);
+            var jdData = recruitmentIntelligenceService.extractJDData(jd);
+
+            // Compute recruitment intelligence score
+            var scoreResult = recruitmentIntelligenceService.computeScore(resumeData, jdData);
+
+            // Return strict JSON output format as specified
+            return ResponseEntity.ok(scoreResult.toOutputJson());
+        } catch (Exception e) {
+            log.error("Recruitment intelligence error: {}", e.getMessage());
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Failed to compute recruitment intelligence: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
+
+    /**
+     * POST /api/recruitment-intelligence/batch
+     * Compute recruitment intelligence scores for multiple resumes against a JD.
+     * Returns array of strict JSON outputs.
+     */
+    @PostMapping("/recruitment-intelligence/batch")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<Map<String, Object>> computeRecruitmentIntelligenceBatch(@RequestBody Map<String, Object> request) {
+        try {
+            String jdId = (String) request.get("jdId");
+            List<String> resumeIds = (List<String>) request.get("resumeIds");
+
+            if (jdId == null || resumeIds == null || resumeIds.isEmpty()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "jdId and resumeIds are required");
+                return ResponseEntity.badRequest().body(error);
+            }
+
+            Optional<com.jdres.model.JobDescription> jdOpt = jobDescriptionRepository.findByJdId(jdId);
+            if (jdOpt.isEmpty()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Job description not found: " + jdId);
+                return ResponseEntity.status(404).body(error);
+            }
+
+            com.jdres.model.JobDescription jd = jdOpt.get();
+            var jdData = recruitmentIntelligenceService.extractJDData(jd);
+
+            List<Map<String, Object>> results = new ArrayList<>();
+            for (String resumeId : resumeIds) {
+                Optional<com.jdres.model.Resume> resumeOpt = resumeRepository.findByFileId(resumeId);
+                if (resumeOpt.isPresent()) {
+                    var resume = resumeOpt.get();
+                    var resumeData = recruitmentIntelligenceService.extractResumeData(resume);
+                    var scoreResult = recruitmentIntelligenceService.computeScore(resumeData, jdData);
+                    results.add(scoreResult.toOutputJson());
+                }
+            }
+
+            // Sort by final score descending
+            results.sort((a, b) -> {
+                Map<String, Object> scoresA = (Map<String, Object>) a.get("scores");
+                Map<String, Object> scoresB = (Map<String, Object>) b.get("scores");
+                Double scoreA = ((Number) scoresA.get("final_score")).doubleValue();
+                Double scoreB = ((Number) scoresB.get("final_score")).doubleValue();
+                return scoreB.compareTo(scoreA);
+            });
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("jdId", jdId);
+            response.put("candidates", results);
+            response.put("count", results.size());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Batch recruitment intelligence error: {}", e.getMessage());
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Failed to compute batch recruitment intelligence: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
 }
+

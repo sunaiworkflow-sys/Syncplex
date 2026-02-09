@@ -57,6 +57,19 @@ public class MatchResult {
     private java.util.List<String> relevantCertifications;
     private java.util.List<String> matchedKeywordsList; // NEW: matched suggested keywords
 
+    // Recruitment Intelligence Scoring Fields
+    private double domainFitScore;
+    private double executionScore;
+    private double deliveryRiskScore;
+    private int scaleBonus;
+    private int pmoPenalty;
+    private double recruitmentFinalScore;
+    private String recruitmentRating;
+    private java.util.List<String> matchedDomains;
+    private java.util.List<String> keyProjectsEvidence;
+    private java.util.List<String> riskEventsEvidence;
+    private java.util.List<String> scaleIndicators;
+
     private LocalDateTime matchedAt;
 
     // Getters and Setters
@@ -315,5 +328,94 @@ public class MatchResult {
 
     public void setMatchedKeywordsList(java.util.List<String> matchedKeywordsList) {
         this.matchedKeywordsList = matchedKeywordsList;
+    }
+
+    // Recruitment Intelligence Getters and Setters
+    public double getDomainFitScore() {
+        return domainFitScore;
+    }
+
+    public void setDomainFitScore(double domainFitScore) {
+        this.domainFitScore = domainFitScore;
+    }
+
+    public double getExecutionScore() {
+        return executionScore;
+    }
+
+    public void setExecutionScore(double executionScore) {
+        this.executionScore = executionScore;
+    }
+
+    public double getDeliveryRiskScore() {
+        return deliveryRiskScore;
+    }
+
+    public void setDeliveryRiskScore(double deliveryRiskScore) {
+        this.deliveryRiskScore = deliveryRiskScore;
+    }
+
+    public int getScaleBonus() {
+        return scaleBonus;
+    }
+
+    public void setScaleBonus(int scaleBonus) {
+        this.scaleBonus = scaleBonus;
+    }
+
+    public int getPmoPenalty() {
+        return pmoPenalty;
+    }
+
+    public void setPmoPenalty(int pmoPenalty) {
+        this.pmoPenalty = pmoPenalty;
+    }
+
+    public double getRecruitmentFinalScore() {
+        return recruitmentFinalScore;
+    }
+
+    public void setRecruitmentFinalScore(double recruitmentFinalScore) {
+        this.recruitmentFinalScore = recruitmentFinalScore;
+    }
+
+    public String getRecruitmentRating() {
+        return recruitmentRating;
+    }
+
+    public void setRecruitmentRating(String recruitmentRating) {
+        this.recruitmentRating = recruitmentRating;
+    }
+
+    public java.util.List<String> getMatchedDomains() {
+        return matchedDomains;
+    }
+
+    public void setMatchedDomains(java.util.List<String> matchedDomains) {
+        this.matchedDomains = matchedDomains;
+    }
+
+    public java.util.List<String> getKeyProjectsEvidence() {
+        return keyProjectsEvidence;
+    }
+
+    public void setKeyProjectsEvidence(java.util.List<String> keyProjectsEvidence) {
+        this.keyProjectsEvidence = keyProjectsEvidence;
+    }
+
+    public java.util.List<String> getRiskEventsEvidence() {
+        return riskEventsEvidence;
+    }
+
+    public void setRiskEventsEvidence(java.util.List<String> riskEventsEvidence) {
+        this.riskEventsEvidence = riskEventsEvidence;
+    }
+
+    public java.util.List<String> getScaleIndicators() {
+        return scaleIndicators;
+    }
+
+    public void setScaleIndicators(java.util.List<String> scaleIndicators) {
+        this.scaleIndicators = scaleIndicators;
     }
 }

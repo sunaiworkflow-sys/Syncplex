@@ -289,7 +289,9 @@ class App {
                 this.jobs = [];
 
                 data.jobDescriptions.forEach((jd, index) => {
-                    const hasSkills = jd.requiredSkills && jd.requiredSkills.length > 0;
+                    // Support both old (requiredSkills) and new (mandatorySkills) schema
+                    const skills = jd.mandatorySkills || jd.requiredSkills || [];
+                    const hasSkills = skills.length > 0;
                     const job = {
                         id: jd.jdId || `job-${index}`,
                         title: jd.title || 'Untitled JD',
@@ -298,10 +300,28 @@ class App {
                         jdFile: null,
                         jdId: jd.jdId,
                         status: hasSkills ? 'extracted' : 'idle',
-                        jdSkills: jd.requiredSkills || [],
+
+                        // Skills (use mandatorySkills with fallback to requiredSkills)
+                        jdSkills: skills,
                         preferredSkills: jd.preferredSkills || [],
-                        suggestedKeywords: jd.suggestedKeywords || [],
+
+                        // Advanced Recruitment Intelligence fields
+                        jdDomains: jd.jdDomains || [],
+                        businessContextKeywords: jd.businessContextKeywords || [],
+                        toolsPlatforms: jd.toolsPlatforms || [],
+                        methodologies: jd.methodologies || [],
+                        architectureKeywords: jd.architectureKeywords || [],
+                        deliveryExpectations: jd.deliveryExpectations || [],
+                        riskTypesExpected: jd.riskTypesExpected || [],
+                        deliveryStyle: jd.jdDeliveryStyle || 'hands-on',
+                        criticalDeliveries: jd.criticalDeliveriesRequired || 0,
+                        riskAreas: jd.riskAreasExpected || 0,
+                        scaleRequirements: jd.scaleRequirements || {},
+
+                        // Legacy fields
+                        suggestedKeywords: jd.suggestedKeywords || jd.businessContextKeywords || [],
                         minExperience: jd.minExperience || 0,
+
                         resumes: []  // Job-specific resumes (will be loaded separately)
                     };
                     this.jobs.push(job);
@@ -414,6 +434,19 @@ class App {
             resume.relevantProjects = match.relevantProjects || [];
             resume.status = match.candidateStatus;
 
+            // Recruitment Intelligence Fields
+            resume.domainFitScore = match.domainFitScore || 0;
+            resume.executionScore = match.executionScore || 0;
+            resume.deliveryRiskScore = match.deliveryRiskScore || 0;
+            resume.scaleBonus = match.scaleBonus || 0;
+            resume.pmoPenalty = match.pmoPenalty || 0;
+            resume.recruitmentFinalScore = match.recruitmentFinalScore || 0;
+            resume.recruitmentRating = match.recruitmentRating || '';
+            resume.matchedDomains = match.matchedDomains || [];
+            resume.keyProjectsEvidence = match.keyProjectsEvidence || [];
+            resume.riskEventsEvidence = match.riskEventsEvidence || [];
+            resume.scaleIndicators = match.scaleIndicators || [];
+
             if (match.allSkills && Array.isArray(match.allSkills)) {
                 resume.skills = match.allSkills;
             }
@@ -502,10 +535,18 @@ class App {
                     job.jdId = data.jdId;
                 }
 
-                // Update skills from backend if we don't have them already
-                // (Only update if backend returned something useful/new)
-                if (data.requiredSkills) job.jdSkills = data.requiredSkills;
+                // Update from new Advanced Recruitment Intelligence schema
+                if (data.mandatorySkills) job.jdSkills = data.mandatorySkills;
                 if (data.preferredSkills) job.preferredSkills = data.preferredSkills;
+                if (data.jdDomains) job.jdDomains = data.jdDomains;
+                if (data.toolsPlatforms) job.toolsPlatforms = data.toolsPlatforms;
+                if (data.methodologies) job.methodologies = data.methodologies;
+                if (data.deliveryStyle) job.deliveryStyle = data.deliveryStyle;
+                if (data.criticalDeliveries) job.criticalDeliveries = data.criticalDeliveries;
+                if (data.riskAreas) job.riskAreas = data.riskAreas;
+                if (data.scaleRequirements) job.scaleRequirements = data.scaleRequirements;
+
+                // Legacy field mapping (for backward compatibility)
                 if (data.suggestedKeywords) job.suggestedKeywords = data.suggestedKeywords;
                 if (data.minExperience) job.minExperience = data.minExperience;
 
@@ -514,7 +555,7 @@ class App {
                     job.status = 'extracted';
                 }
 
-                console.log('✅ JD saved with', job.jdSkills?.length || 0, 'required skills');
+                console.log('✅ JD saved with', job.jdSkills?.length || 0, 'mandatory skills,', job.jdDomains?.length || 0, 'domains');
                 return true;
             }
             return false;
@@ -1419,11 +1460,84 @@ class App {
                     }
                 }
 
-                // Render content
-                keywordsContainer.innerHTML = `
+                // Build comprehensive JD intelligence display
+                let keywordsHTML = '';
+
+                // Domains Section
+                if (job.jdDomains && job.jdDomains.length > 0) {
+                    keywordsHTML += `
+                    <div class="mb-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">🏢 Domains (${job.jdDomains.length})</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            ${job.jdDomains.map(d => `<span class="inline-block px-2.5 py-1 text-xs font-medium rounded-md bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50">${d}</span>`).join('')}
+                        </div>
+                    </div>`;
+                }
+
+                // Tools & Platforms Section
+                if (job.toolsPlatforms && job.toolsPlatforms.length > 0) {
+                    keywordsHTML += `
+                    <div class="mb-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">🔧 Tools & Platforms (${job.toolsPlatforms.length})</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            ${job.toolsPlatforms.map(t => `<span class="inline-block px-2.5 py-1 text-xs font-medium rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50">${t}</span>`).join('')}
+                        </div>
+                    </div>`;
+                }
+
+                // Methodologies Section
+                if (job.methodologies && job.methodologies.length > 0) {
+                    keywordsHTML += `
+                    <div class="mb-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider">📊 Methodologies (${job.methodologies.length})</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            ${job.methodologies.map(m => `<span class="inline-block px-2.5 py-1 text-xs font-medium rounded-md bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 border border-teal-200 dark:border-teal-800/50">${m}</span>`).join('')}
+                        </div>
+                    </div>`;
+                }
+
+                // Delivery & Scale Info
+                const deliveryStyle = job.deliveryStyle || 'hands-on';
+                const criticalDeliveries = job.criticalDeliveries || 0;
+                const riskAreas = job.riskAreas || 0;
+                const scale = job.scaleRequirements || {};
+
+                keywordsHTML += `
+                <div class="mb-3 p-3 rounded-lg bg-gradient-to-r from-zinc-50 to-zinc-100 dark:from-zinc-800/50 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-700">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">📋 Delivery & Scale Requirements</span>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <div class="flex flex-col items-center p-2 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                            <span class="text-zinc-500 dark:text-zinc-400">Style</span>
+                            <span class="font-semibold ${deliveryStyle === 'hands-on' ? 'text-emerald-600' : deliveryStyle === 'hybrid' ? 'text-amber-600' : 'text-blue-600'}">${deliveryStyle}</span>
+                        </div>
+                        <div class="flex flex-col items-center p-2 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                            <span class="text-zinc-500 dark:text-zinc-400">Deliveries</span>
+                            <span class="font-semibold text-sky-600">${criticalDeliveries}</span>
+                        </div>
+                        <div class="flex flex-col items-center p-2 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                            <span class="text-zinc-500 dark:text-zinc-400">Risk Areas</span>
+                            <span class="font-semibold text-amber-600">${riskAreas}</span>
+                        </div>
+                        <div class="flex flex-col items-center p-2 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                            <span class="text-zinc-500 dark:text-zinc-400">Scale</span>
+                            <span class="font-semibold ${scale.enterprise_scale ? 'text-purple-600' : 'text-zinc-500'}">${scale.enterprise_scale ? '🏢 Enterprise' : scale.large_budget_expected ? '💰 Large' : '📦 Standard'}</span>
+                        </div>
+                    </div>
+                </div>`;
+
+                // Business Context / Keywords Section
+                keywordsHTML += `
                 <div class="mb-3">
                     <div class="flex justify-between items-center mb-2">
-                        <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Suggested Keywords (${(job.suggestedKeywords || []).length})</span>
+                        <span class="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">🎯 Business Keywords (${(job.suggestedKeywords || []).length})</span>
                     </div>
 
                     <div id="suggestedKeywordsList" class="flex flex-wrap gap-2">
@@ -1439,8 +1553,10 @@ class App {
                         : '<div class="w-full text-center py-3 border-2 border-dashed border-zinc-100 dark:border-zinc-800/50 rounded-lg text-xs text-zinc-400">No keywords extracted yet.</div>'
                     }
                     </div>
-                </div>
-            `;
+                </div>`;
+
+                // Render content
+                keywordsContainer.innerHTML = keywordsHTML;
             }
         } else {
             // Hide JD requirements section, show placeholder
@@ -1464,7 +1580,7 @@ class App {
 
             // Sort resumes by score if ranked
             if (job.status === 'ranked') {
-                displayResumes.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+                displayResumes.sort((a, b) => (b.recruitmentFinalScore || b.matchScore || 0) - (a.recruitmentFinalScore || a.matchScore || 0));
             }
 
             // Create container with tabs
@@ -1486,7 +1602,7 @@ class App {
                 </div>
             `;
 
-            // Ranking table content
+            // Ranking table content with Recruitment Intelligence Scoring
             const rankingTableHtml = `
                 <div id="panelRanking" class="table-panel">
                     <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40">
@@ -1495,17 +1611,19 @@ class App {
                                 <tr>
                                     <th class="px-2 py-3 font-medium">#</th>
                                     <th class="px-2 py-3 font-medium">Candidate</th>
-                                    <th class="px-2 py-3 font-medium text-center">Match</th>
-                                    <th class="px-2 py-3 font-medium text-center">Skills</th>
-                                    <th class="px-2 py-3 font-medium">Missing</th>
-                                    <th class="px-2 py-3 font-medium">Projects</th>
-                                    <th class="px-2 py-3 font-medium text-center">Exp</th>
+                                    <th class="px-2 py-3 font-medium text-center" title="Final Recruitment Score (0-100)">Score</th>
+                                    <th class="px-2 py-3 font-medium text-center" title="Rating: Top Choice / Strong Primary / Strong Secondary / Backup / Not Recommended">Rating</th>
+                                    <th class="px-2 py-3 font-medium text-center" title="Domain Fit Score (30% weight)">Domain</th>
+                                    <th class="px-2 py-3 font-medium text-center" title="Execution Score (30% weight)">Execution</th>
+                                    <th class="px-2 py-3 font-medium text-center" title="Delivery Risk Score (25% weight)">Risk</th>
+                                    <th class="px-2 py-3 font-medium text-center" title="Scale Bonus (+10 for $10M+ budget or multi-year, +5 for 15+ team)">Bonus</th>
+                                    <th class="px-2 py-3 font-medium text-center" title="Skills Matched / Total Required">Skills</th>
                                     <th class="px-2 py-3 font-medium">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
                                 ${displayResumes.length === 0 ? `
-                                    <tr><td colspan="9" class="px-4 py-8 text-center text-zinc-400">No candidates pending review</td></tr>
+                                    <tr><td colspan="10" class="px-4 py-8 text-center text-zinc-400">No candidates pending review</td></tr>
                                 ` : displayResumes.map((r, idx) => {
                 const matchedList = r.matchedSkillsList || (Array.isArray(r.matchedSkills) ? r.matchedSkills : []);
                 const missingList = r.missingSkillsList || (Array.isArray(r.missingSkills) ? r.missingSkills : []);
@@ -1513,62 +1631,66 @@ class App {
                 const matchedCount = matchedList.length;
                 const matchedDisplay = `${matchedCount}/${totalRequired}`;
                 const matchedTitle = matchedList.join(', ') || 'None';
-                const missingDisplay = missingList.length > 0
-                    ? `<div class="flex flex-col gap-0.5 text-[11px] leading-tight text-left">
-                            ${missingList.map(s => `<div>• ${s}</div>`).join('')}
-                           </div>`
-                    : '<span class="opacity-50">—</span>';
                 const displayName = r.candidateName || r.name || 'Unknown';
-                const atsScore = r.skillMatchScore || r.matchScore || 0;
-                const projects = r.relevantProjects || [];
-                const hasProjects = projects.length > 0;
-                let projectDisplay = '<span class="text-zinc-400">—</span>';
 
-                if (hasProjects) {
-                    projectDisplay = `
-                        <button onclick="app.showProjectsModal('${r.fileId || r.name}')" 
-                            class="px-3 py-1.5 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:hover:bg-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-all shadow-sm flex items-center gap-2 mx-auto">
-                            <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                            View Projects (${projects.length})
-                        </button>
-                     `;
-                }
+                // Recruitment Intelligence Scores
+                const finalScore = Math.round(r.recruitmentFinalScore || r.matchScore || 0);
+                const rating = r.recruitmentRating || this.getRatingFromScore(finalScore);
+                const domainFit = Math.round(r.domainFitScore || 0);
+                const execution = Math.round(r.executionScore || 0);
+                const deliveryRisk = Math.round(r.deliveryRiskScore || 0);
+                const scaleBonus = r.scaleBonus || 0;
+                const pmoPenalty = r.pmoPenalty || 0;
+
+                // Build tooltips for evidence
+                const domainTooltip = (r.matchedDomains || []).join(', ') || 'No domains matched';
+                const scaleTooltip = (r.scaleIndicators || []).join('\\n') || 'No scale indicators';
+                const bonusDisplay = scaleBonus > 0 ? `+${scaleBonus}` : (pmoPenalty < 0 ? `${pmoPenalty}` : '—');
+                const bonusClass = scaleBonus > 0 ? 'text-emerald-600 dark:text-emerald-400' : (pmoPenalty < 0 ? 'text-red-500 dark:text-red-400' : 'text-zinc-400');
 
                 return `
-                        <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors h-[60px]"> <!-- Fixed reasonable min-height -->
+                        <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors h-[60px]">
                                     <td class="px-2 py-3 align-middle font-bold text-zinc-900 dark:text-zinc-200 text-center">${idx + 1}</td>
                                     <td class="px-2 py-3 align-middle">
                                         <div class="flex items-center gap-2">
-                                            <div class="font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-[250px]" title="${displayName}">${displayName}</div>
+                                            <div class="font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]" title="${displayName}">${displayName}</div>
                                             ${r.viewLink ? `<a href="${this.getViewerUrl(r.viewLink)}" target="_blank" class="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex-shrink-0" title="View Resume">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                             </a>` : ''}
                                         </div>
                                     </td>
                                     <td class="px-2 py-3 align-middle text-center">
-                                        <div class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${this.getScoreBadgeColor(r.matchScore)}">${r.matchScore || 0}%</div>
+                                        <div class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${this.getScoreBadgeColor(finalScore)}">${finalScore}</div>
                                     </td>
                                     <td class="px-2 py-3 align-middle text-center">
-                                        <span class="text-emerald-600 dark:text-emerald-400 font-semibold cursor-help" title="${matchedTitle}">${matchedDisplay}</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ${this.getRatingBadgeColor(rating)}">${rating || '—'}</span>
                                     </td>
-                                    <td class="px-2 py-3 align-middle">
-                                        <div class="text-xs text-red-500 dark:text-red-400 min-w-[140px] max-h-[60px] overflow-y-auto custom-scrollbar">${missingDisplay}</div>
+                                    <td class="px-2 py-3 align-middle text-center" title="${domainTooltip}">
+                                        <span class="text-xs font-medium ${domainFit >= 70 ? 'text-emerald-600 dark:text-emerald-400' : domainFit >= 50 ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400'}">${domainFit}%</span>
                                     </td>
                                     <td class="px-2 py-3 align-middle text-center">
-                                        ${projectDisplay}
+                                        <span class="text-xs font-medium ${execution >= 70 ? 'text-emerald-600 dark:text-emerald-400' : execution >= 50 ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400'}">${execution}%</span>
                                     </td>
-                                    <td class="px-2 py-3 align-middle text-center text-zinc-600 dark:text-zinc-400 text-xs">${r.candidateExperience || '0y'}</td>
+                                    <td class="px-2 py-3 align-middle text-center">
+                                        <span class="text-xs font-medium ${deliveryRisk >= 70 ? 'text-emerald-600 dark:text-emerald-400' : deliveryRisk >= 50 ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400'}">${deliveryRisk}%</span>
+                                    </td>
+                                    <td class="px-2 py-3 align-middle text-center" title="${scaleTooltip}">
+                                        <span class="text-xs font-bold ${bonusClass}">${bonusDisplay}</span>
+                                    </td>
+                                    <td class="px-2 py-3 align-middle text-center">
+                                        <span class="text-emerald-600 dark:text-emerald-400 font-semibold cursor-help text-xs" title="${matchedTitle}">${matchedDisplay}</span>
+                                    </td>
                                     <td class="px-2 py-3 align-middle">
                                         <div class="flex gap-1 items-center">
                                             <button onclick="app.setCandidateStatus('${r.fileId || r.name}', 'accepted')"
-                                                class="px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${r.status === 'accepted' ? 'bg-emerald-500 text-white' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400'}">✓ Accept</button>
+                                                class="px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${r.status === 'accepted' ? 'bg-emerald-500 text-white' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400'}">✓</button>
                                             <button onclick="app.setCandidateStatus('${r.fileId || r.name}', 'review')"
-                                                class="px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${r.status === 'review' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400'}">⏳ Review</button>
+                                                class="px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${r.status === 'review' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400'}">⏳</button>
                                             <button onclick="app.setCandidateStatus('${r.fileId || r.name}', 'rejected')"
-                                                class="px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${r.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400'}">✗ Reject</button>
-                                            <button onclick="app.deleteResume('${r.fileId || r.name}')" title="Permanently Delete Resume"
-                                                class="p-1.5 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all ml-1">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                class="px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${r.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400'}">✗</button>
+                                            <button onclick="app.deleteResume('${r.fileId || r.name}')" title="Delete"
+                                                class="p-1 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                                 </svg>
                                             </button>
@@ -1674,9 +1796,38 @@ class App {
 
     getScoreBadgeColor(score) {
         if (!score) return 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400';
+        if (score >= 90) return 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white';
         if (score >= 80) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400';
-        if (score >= 60) return 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400';
-        return 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400';
+        if (score >= 70) return 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400';
+        if (score >= 60) return 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400';
+        return 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400';
+    }
+
+    // Get rating tier from score (recruitment intelligence formula)
+    getRatingFromScore(score) {
+        if (score >= 90) return 'Top Choice';
+        if (score >= 80) return 'Strong Primary';
+        if (score >= 70) return 'Strong Secondary';
+        if (score >= 60) return 'Backup';
+        return 'Not Recommended';
+    }
+
+    // Get badge color for rating tier
+    getRatingBadgeColor(rating) {
+        switch (rating) {
+            case 'Top Choice':
+                return 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm';
+            case 'Strong Primary':
+                return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
+            case 'Strong Secondary':
+                return 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400';
+            case 'Backup':
+                return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+            case 'Not Recommended':
+                return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400';
+            default:
+                return 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400';
+        }
     }
 
     // Set candidate status (Accept, Review, Reject)

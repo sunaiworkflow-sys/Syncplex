@@ -54,29 +54,61 @@ public class JobDescriptionController {
             // Embeddings are no longer needed - we use structured skill matching
             List<Double> embedding = Collections.emptyList();
 
-            // 2. Extract structured details
+            // 2. Extract structured details using Advanced Recruitment Intelligence
             Map<String, Object> parsedDetails = skillExtractorService.extractJobDescriptionDetails(jdText);
 
-            // 3. Extract required/preferred skills for quick access
-            List<String> requiredSkills = extractSkillsList(parsedDetails, "technical_skills");
+            // 3. Extract fields from new schema
+            List<String> mandatorySkills = extractSkillsList(parsedDetails, "mandatory_skills");
             List<String> preferredSkills = extractSkillsList(parsedDetails, "preferred_skills");
-            List<String> suggestedKeywords = extractSkillsList(parsedDetails, "suggested_keywords"); // Extract keywords
-            int minExperience = extractMinExperience(parsedDetails);
+            List<String> jdDomains = extractSkillsList(parsedDetails, "jd_domains");
+            List<String> businessContextKeywords = extractSkillsList(parsedDetails, "business_context_keywords");
+            List<String> toolsPlatforms = extractSkillsList(parsedDetails, "tools_platforms");
+            List<String> methodologies = extractSkillsList(parsedDetails, "methodologies");
+            List<String> architectureKeywords = extractSkillsList(parsedDetails, "architecture_keywords");
+            List<String> deliveryExpectations = extractSkillsList(parsedDetails, "delivery_expectations");
+            List<String> riskTypesExpected = extractSkillsList(parsedDetails, "risk_types_expected");
+            
+            // Extract counts and single values
+            int criticalDeliveriesRequired = extractIntValue(parsedDetails, "critical_deliveries_required");
+            int riskAreasExpected = extractIntValue(parsedDetails, "risk_areas_expected");
+            String jdDeliveryStyle = extractStringValue(parsedDetails, "jd_delivery_style", "hands-on");
+            
+            // Extract scale requirements map
+            @SuppressWarnings("unchecked")
+            Map<String, Object> scaleRequirements = parsedDetails.get("scale_requirements") instanceof Map 
+                ? (Map<String, Object>) parsedDetails.get("scale_requirements") 
+                : new HashMap<>();
 
-            // 4. Save JD
+            // 4. Save JD with all new fields
             JobDescription jd = new JobDescription();
             String jdId = UUID.randomUUID().toString();
             jd.setJdId(jdId);
-            jd.setTitle(title != null ? title : "Untitled JD");
+            jd.setTitle(title != null ? title : extractStringValue(parsedDetails, "jd_title", "Untitled JD"));
             jd.setText(jdText);
             jd.setSource("manual_upload");
             jd.setCreatedAt(LocalDateTime.now());
             jd.setEmbedding(embedding); // Empty - not used anymore
             jd.setParsedDetails(parsedDetails);
-            jd.setRequiredSkills(requiredSkills);
+            
+            // Legacy fields (for backward compatibility)
+            jd.setRequiredSkills(mandatorySkills);
             jd.setPreferredSkills(preferredSkills);
-            jd.setSuggestedKeywords(suggestedKeywords); // Set extracted keywords
-            jd.setMinExperience(minExperience);
+            jd.setSuggestedKeywords(businessContextKeywords); // Map business context to keywords
+            jd.setMinExperience(0); // No longer extracted in new schema
+            
+            // New Advanced Recruitment Intelligence fields
+            jd.setJdDomains(jdDomains);
+            jd.setBusinessContextKeywords(businessContextKeywords);
+            jd.setMandatorySkills(mandatorySkills);
+            jd.setToolsPlatforms(toolsPlatforms);
+            jd.setMethodologies(methodologies);
+            jd.setArchitectureKeywords(architectureKeywords);
+            jd.setCriticalDeliveriesRequired(criticalDeliveriesRequired);
+            jd.setDeliveryExpectations(deliveryExpectations);
+            jd.setRiskAreasExpected(riskAreasExpected);
+            jd.setRiskTypesExpected(riskTypesExpected);
+            jd.setJdDeliveryStyle(jdDeliveryStyle);
+            jd.setScaleRequirements(scaleRequirements);
 
             // Set recruiterId for user isolation
             if (userId != null && !userId.trim().isEmpty()) {
@@ -88,14 +120,22 @@ public class JobDescriptionController {
             // 5. Trigger matching against all resumes (background/async in production)
             matchingService.matchNewJobDescription(jdId);
 
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "jdId", jdId,
-                    "title", jd.getTitle(),
-                    "requiredSkills", requiredSkills,
-                    "preferredSkills", preferredSkills,
-                    "suggestedKeywords", suggestedKeywords, // Return keywords
-                    "minExperience", minExperience));
+            // Build response (Map.of only supports 10 entries, so use HashMap)
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("jdId", jdId);
+            response.put("title", jd.getTitle());
+            response.put("jdDomains", jdDomains);
+            response.put("mandatorySkills", mandatorySkills);
+            response.put("preferredSkills", preferredSkills);
+            response.put("toolsPlatforms", toolsPlatforms);
+            response.put("methodologies", methodologies);
+            response.put("deliveryStyle", jdDeliveryStyle);
+            response.put("criticalDeliveries", criticalDeliveriesRequired);
+            response.put("riskAreas", riskAreasExpected);
+            response.put("scaleRequirements", scaleRequirements);
+            
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -543,6 +583,26 @@ public class JobDescriptionController {
             }
         }
         return new ArrayList<>();
+    }
+
+    private int extractIntValue(Map<String, Object> details, String key) {
+        if (details == null)
+            return 0;
+        Object value = details.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        return 0;
+    }
+
+    private String extractStringValue(Map<String, Object> details, String key, String defaultValue) {
+        if (details == null)
+            return defaultValue;
+        Object value = details.get(key);
+        if (value instanceof String && !((String) value).isEmpty()) {
+            return (String) value;
+        }
+        return defaultValue;
     }
 
     private int extractMinExperience(Map<String, Object> details) {

@@ -6,6 +6,7 @@ import com.jdres.model.Resume;
 import com.jdres.repository.JobDescriptionRepository;
 import com.jdres.repository.MatchResultRepository;
 import com.jdres.repository.ResumeRepository;
+import com.jdres.service.RecruitmentIntelligenceService.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,9 @@ public class MatchingService {
 
     @Autowired
     private MatchResultRepository matchResultRepository;
+
+    @Autowired
+    private RecruitmentIntelligenceService recruitmentIntelligenceService;
 
     // Weights for final score calculation (Total = 100%)
     private static final double WEIGHT_SKILL = 0.35; // 35% - Skills (reduced for keywords)
@@ -355,6 +359,35 @@ public class MatchingService {
         // Extract and set candidate name
         String candidateName = extractCandidateName(parsedDetails, resume.getName());
         result.setCandidateName(candidateName);
+
+        // ============================================
+        // 9. RECRUITMENT INTELLIGENCE SCORING
+        // ============================================
+        try {
+            ResumeExtractionResult resumeData = recruitmentIntelligenceService.extractResumeData(resume);
+            JDExtractionResult jdData = recruitmentIntelligenceService.extractJDData(jd);
+            RecruitmentScoreResult recruitmentScore = recruitmentIntelligenceService.computeScore(resumeData, jdData);
+
+            // Set recruitment intelligence fields
+            result.setDomainFitScore(recruitmentScore.domainFitScore);
+            result.setExecutionScore(recruitmentScore.executionScore);
+            result.setDeliveryRiskScore(recruitmentScore.deliveryRiskScore);
+            result.setScaleBonus(recruitmentScore.scaleBonus);
+            result.setPmoPenalty(recruitmentScore.pmoPenalty);
+            result.setRecruitmentFinalScore(recruitmentScore.finalScore);
+            result.setRecruitmentRating(recruitmentScore.rating);
+            result.setMatchedDomains(recruitmentScore.matchedDomains);
+            result.setKeyProjectsEvidence(recruitmentScore.keyProjects);
+            result.setRiskEventsEvidence(recruitmentScore.riskEvents);
+            result.setScaleIndicators(recruitmentScore.scaleIndicators);
+
+            log.debug("Recruitment Intelligence: {} | Domain={}, Execution={}, Risk={}, Rating={}",
+                    candidateName, recruitmentScore.domainFitScore, recruitmentScore.executionScore,
+                    recruitmentScore.deliveryRiskScore, recruitmentScore.rating);
+        } catch (Exception e) {
+            log.warn("Failed to compute recruitment intelligence score for {} vs {}: {}",
+                    resume.getFileId(), jd.getJdId(), e.getMessage());
+        }
 
         log.debug("Match: {} vs {} | Skills: {}/{} | Exp: {} | Score: {:.2f}",
                 resume.getFileId(), jd.getJdId(),
